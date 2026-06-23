@@ -17,21 +17,30 @@ LD      := $(LLD)/ld.lld
 OBJCOPY := $(LLVM)/llvm-objcopy
 
 TARGET  := aarch64-none-elf
-CFLAGS  := --target=$(TARGET) -ffreestanding -nostdlib -Wall -Wextra
+WARN    := -Wall -Wextra
+COMMON  := --target=$(TARGET) -ffreestanding -nostdlib $(WARN)
+ASFLAGS := $(COMMON)
+# MMU is off until M4: all RAM is Device memory, so force aligned accesses and
+# keep the compiler off the FP/NEON registers (not enabled yet).
+CFLAGS  := $(COMMON) -O2 -mstrict-align -mgeneral-regs-only -fno-stack-protector
 
 ELF     := build/aros-aarch64.elf
-MARKER  ?= [M1]
+OBJS    := build/start.o build/kmain.o
+MARKER  ?= [M2]
 
 .PHONY: image run shot dbg clean
 
 build:
 	@mkdir -p build
 
-build/start.o: boot/start.S | build
+build/%.o: boot/%.S | build
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+build/%.o: boot/%.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(ELF): build/start.o boot/linker.ld
-	$(LD) -T boot/linker.ld build/start.o -o $@
+$(ELF): $(OBJS) boot/linker.ld
+	$(LD) -T boot/linker.ld $(OBJS) -o $@
 
 image: $(ELF)
 	@echo ">> built $(ELF)"
@@ -44,6 +53,13 @@ shot: image
 
 dbg: image
 	SYMS=$(ELF) ./harness/lldb-dump.sh
+
+# Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
+# this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.
+dtb: | build
+	qemu-system-aarch64 -machine virt,dumpdtb=build/virt.dtb -cpu cortex-a72 -display none
+	dtc -I dtb -O dts build/virt.dtb -o build/virt.dts 2>/dev/null
+	@echo ">> decoded device tree -> build/virt.dts"
 
 clean:
 	rm -rf run build

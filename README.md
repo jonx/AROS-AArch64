@@ -30,18 +30,21 @@ fault_lines=0
 
 | Path | Purpose |
 |------|---------|
-| `boot/` | the bare-metal stub: `start.S` + `linker.ld` |
+| `boot/` | the bare-metal stub: `start.S`, `kmain.c` (C runtime + `kprintf`), `linker.ld` |
 | `harness/run.sh` | the loop: build → boot headless → observe → uniform verdict |
 | `harness/qmp.py` | QMP client (framebuffer screendump, etc.) |
 | `harness/lldb-dump.sh` | scripted lldb CPU-state dump over QEMU's gdbstub |
-| `Makefile` | agent entry points: `run`, `shot`, `dbg`, `clean` |
+| `Makefile` | agent entry points: `run`, `shot`, `dbg`, `dtb`, `clean` |
+| `ROADMAP.md` | the full three-phase arc |
 | `PHASE1.md` | the milestone roadmap (A0…M9) |
+| `HARDWARE.md` | grounded `virt` hardware map (cited to the real DTB) |
 | `NOTES.md` | architecture + decision log |
 
 ## Status
 
-Phase 1, milestone **M1** — boots to a serial marker on QEMU `virt` and exits
-cleanly. See [PHASE1.md](PHASE1.md) for the full roadmap.
+Phase 1, milestone **M2** — boots into a C runtime on QEMU `virt` (EL1, PL011 +
+`kprintf`) and exits cleanly. See [ROADMAP.md](ROADMAP.md) for the arc and
+[PHASE1.md](PHASE1.md) for the milestones.
 
 ## License
 

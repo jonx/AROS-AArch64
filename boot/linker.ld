@@ -14,7 +14,14 @@ SECTIONS
     .text : { KEEP(*(.text.boot)) *(.text*) }
     .rodata : { *(.rodata*) }
     .data : { *(.data*) }
-    .bss : { *(.bss*) *(COMMON) }
+
+    . = ALIGN(8);
+    .bss : {
+        __bss_start = .;
+        *(.bss*) *(COMMON)
+        . = ALIGN(8);
+        __bss_end = .;
+    }
 
     /* 16 KiB stack reserved above everything; SP starts at _stack_top and
      * grows down into this gap, so it can never collide with .bss. */
