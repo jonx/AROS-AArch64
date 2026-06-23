@@ -21,34 +21,42 @@ Bare-metal stub enters at EL1, inits the PL011 UART, prints `[M1] aarch64 serial
 alive`, exits cleanly via semihosting. Confirmed entry EL = EL1.
 **Observe:** serial marker. **Files:** `boot/start.S`, `boot/linker.ld`.
 
-### M2 — C runtime 🔜
-Zero `.bss`, set up the stack, jump from asm into C, print from C over the UART
-(a tiny `putc`/`puts`/`kprintf`). This is the boundary where bring-up stops being
-assembly and becomes C — the layer most of AROS lives in.
-**Observe:** `[M2] hello from C` marker. **Risk:** relocations / `adrp` ranges
-once C code and a literal pool exist; keep the image small and position-correct.
+### M2 — C runtime ✅
+`start.S` zeroes `.bss`, sets the stack, hands off to `kmain()` in C. C carries a
+PL011 driver + a tiny `kprintf` (verified: `%d %u %x %lx %p %s %c`) that later
+milestones reuse. Built `-mstrict-align -mgeneral-regs-only` (MMU off → Device
+memory → aligned-only; FP not enabled yet). Confirmed **EL1** from C. Grounding
+caught that QEMU's ELF `-kernel` enters with **x0 = 0, not the DTB** (HARDWARE.md).
+**Observe:** `[M2] hello from C (EL1) x0=0x0` marker.
+**Files:** `boot/start.S`, `boot/kmain.c`, `boot/linker.ld`.
 
-### M3 — Exception vectors ⬜
-Install `VBAR_EL1`, write the 16-entry vector table, deliberately trigger a
-synchronous exception and report ESR/ELR/FAR from the handler, then recover.
-**Observe:** marker + lldb CPU-state (this is the first milestone where the
-failure mode is "we faulted," so the lldb channel earns its keep).
+### M3 — Exception vectors 🔜
+Install `VBAR_EL1`, write the 16-entry × `0x80`-byte vector table, deliberately
+trigger a synchronous exception and report ESR/ELR/FAR from the handler (via the
+M2 `kprintf` hex), then recover. Grounded: we enter with DAIF masked, so we
+control when interrupts open (M5).
+**Observe:** marker + lldb CPU-state (first milestone where the failure mode is
+"we faulted," so the lldb channel earns its keep).
 
 ### M4 — MMU on ⬜
-Build initial page tables (identity-map RAM + device range, a cached mapping for
-RAM), set TCR/MAIR/TTBR, enable the MMU via SCTLR, and keep printing afterward.
+Build initial page tables (identity-map RAM + the device range incl. PL011
+`0x0900_0000` and GIC `0x0800_0000`), set TCR/MAIR/TTBR, enable via SCTLR.M, keep
+printing. Once on, RAM can be Normal-cacheable and `-mstrict-align` is no longer
+load-bearing.
 **Observe:** marker that prints *after* `SCTLR.M=1`. **Risk:** the classic
 turn-on-the-MMU-and-vanish; bisect with the lldb channel + QEMU's `-d mmu`.
 
 ### M5 — Timer interrupt ⬜
-Bring up the GICv2/v3 distributor+CPU interface, enable the generic timer, take a
-periodic IRQ, count ticks. First asynchronous event — the heartbeat a scheduler
-needs.
+**Grounded (HARDWARE.md):** target is **GICv2** — GICD `0x0800_0000`, GICC
+`0x0801_0000`; pin `-machine virt,gic-version=2` so it can't shift under us. Use
+the **EL1 physical timer (CNTP), PPI 14 → INTID 30**. Enable, take a periodic IRQ,
+count ticks. First asynchronous event — the heartbeat a scheduler needs.
 **Observe:** marker showing tick count climbing.
 
 ### M6 — Physical memory ⬜
-A simple page allocator over the RAM the DTB reports (or a hardcoded range to
-start). The substrate `exec`'s memory pools sit on.
+A simple page allocator. **Grounded:** x0 is NOT the DTB on our boot path, so to
+size RAM from a device tree we must pass `-dtb` at a known address (or hardcode
+the `0x4000_0000`+`-m` range to start). The substrate `exec`'s memory pools sit on.
 **Observe:** marker: alloc/free N pages, checksum survives.
 
 ### M7 — Context switch ⬜

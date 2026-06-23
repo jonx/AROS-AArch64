@@ -51,6 +51,17 @@ Each milestone prints a unique serial marker (`[M1] …`, `[M2] …`). On an OS
 bring-up there's no stack trace — markers are the agent's ground-truth "did it
 get further than last time," and one-per-milestone lets it localize a regression.
 
+### Ground against the real machine, not priors
+Every hardware fact is verified against an authoritative source before code is
+written against it — the DTB the actual QEMU binary emits (`make dtb`), the QEMU
+board docs, the arm64 boot protocol — and recorded in `HARDWARE.md` with its
+citation. This already paid for itself at M2: (1) the docs say the default GIC is
+v3, but our exact invocation emits **v2** — the machine wins; (2) the boot
+protocol says x0 = DTB, but QEMU's ELF `-kernel` path actually enters with
+**x0 = 0**, which would have made M6's "read RAM from the DTB" silently dereference
+null. Assumptions get *proven in the loop* (kmain prints the value) rather than
+assumed. This is the project's standing rule: ground it, don't dream it.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
