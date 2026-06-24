@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-library hosted-signal hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-library hosted-signal hosted-msgport hosted-test clean
 
 build:
 	@mkdir -p build
@@ -116,6 +116,12 @@ hosted-library: | build
 hosted-signal: | build
 	clang -arch arm64 -O2 -Wall -Wextra hosted/signal.c -o build/host-signal
 	BIN=build/host-signal ./harness/run-hosted.sh '[H9] hosted exec Wait/Signal ok'
+
+# H10: exec message ports — PutMsg/WaitPort/GetMsg/ReplyMsg on Wait/Signal. The
+# canonical client/server request-reply (device-I/O) loop, hosted.
+hosted-msgport: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/msgport.c -o build/host-msgport
+	BIN=build/host-msgport ./harness/run-hosted.sh '[H10] hosted exec message ports ok'
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:

@@ -134,12 +134,24 @@ lock-step (100=100, each blocking 100×) while a free-running task does ~1000× 
 work, proving the pair really yield the CPU; no lost wakeups (Wait checks
 `tc_SigRecvd` first). **Files:** `hosted/signal.c`. **Run:** `make hosted-signal`.
 
+### H10 — Message ports: exec IPC, the device-I/O shape ✅
+Almost everything in AROS talks via messages, and device I/O *is* a message
+round-trip. H10 layers the real port mechanism on H9's Wait/Signal, grounded
+against `rom/exec/{putmsg,getmsg,waitport}.c`: `PutMsg` = `AddTail` +
+`Signal(mp_SigTask, 1<<mp_SigBit)`; `WaitPort` blocks on the port's signal until a
+message arrives; `GetMsg` = `RemHead`; `ReplyMsg` = `PutMsg` to the reply port.
+**Observe:** `[H10] ... message ports ok` — a client↔server request/reply loop
+(server squares each request) runs ~124 round-trips with the server processing
+*exactly* as many (no loss) and zero wrong replies, both tasks blocking on their
+ports. **Files:** `hosted/msgport.c`. **Run:** `make hosted-msgport`. This is the
+canonical client/server I/O loop a hosted AROS uses to reach host resources.
+
 ### Beyond — toward a real hosted AROS
 The full host-facing surface is de-risked: the AROS-side machinery runs hosted
 (H1/H2), the host-call boundary is bridged (H3), the core `exec` subsystems are
-faithful and composed — scheduler, memory, blocking (H4/H5/H6/H9) — the host
-display is live (H7), and the library/module mechanism works hosted with no W^X
-wall (H8). What's left is no longer a *hosted* unknown — it's **the graft**:
+faithful and composed — scheduler, memory, blocking, IPC (H4/H5/H6/H9/H10) — the
+host display is live (H7), and the library/module mechanism works hosted with no
+W^X wall (H8). What's left is no longer a *hosted* unknown — it's **the graft**:
 AROS's own crosstools for `aarch64-darwin` + its `configure`/`mmake` build system,
 then bootstrapping the real `exec.library` from the AROS tree on these proven
 primitives. The grounded, code-level entry points are in [GRAFT.md](GRAFT.md), with
