@@ -5,8 +5,14 @@
 
 #include <stdint.h>
 
-// printf-to-UART, defined in kmain.c, reused everywhere (M2).
+// PL011 UART console + printf-to-UART (M2/M8); defined in uart.c.
+void uart_init(void);
+void uart_putc(char c);
+int  uart_getc(void);
 void kprintf(const char *fmt, ...);
+
+// Minimal line shell (M8); defined in shell.c.
+void shell_run(void);
 
 // Exception vectors (M3): install VBAR_EL1; defined in exc.c / vectors.S.
 void vectors_init(void);
