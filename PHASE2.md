@@ -73,11 +73,27 @@ overlap detection. **Observe:** `[H5] hosted AROS AllocMem ok` — a stress batt
 recovery) with every free-list invariant (ordered, non-overlapping, in-bounds,
 `sum==mh_Free`) asserted. **Files:** `hosted/mem.c`. **Run:** `make hosted-mem`.
 
+### H6 — A tiny hosted exec: H4 + H5 composed ✅
+The isolated spikes proved each subsystem; H6 proves they *compose* — where
+integration bugs hide. One process: memory is the H5 allocator over `mmap`; tasks
+(`struct Task` + stack) are `AllocMem`'d **from that heap**; the H4 priority
+scheduler preempts them off SIGALRM; and `Forbid()`/`Permit()` (AROS's
+dispatch-disable) make `AllocMem` task-safe. Workers continuously alloc / stamp a
+distinct pattern / verify / free under preemption. **Observe:** `[H6] hosted exec
+ok` — fair round-robin, patterns intact across every switch, and the free list
+still consistent after ~21k alloc/free cycles. **Composition caught a real bug:**
+the first cut corrupted the free list (`free_sum < mh_Free` by 512) because
+`forbid_cnt` is `volatile` but the allocator's memory is not, and C orders only
+volatile-to-volatile — so `-O2` sank free-list writes *outside* the Forbid window
+where a SIGALRM caught them half-done. Fixed with a compiler barrier in
+Forbid/Permit (single thread ⇒ no CPU fence needed). **Files:** `hosted/kern.c`.
+**Run:** `make hosted-kern`.
+
 ### Beyond — toward a real hosted AROS
-The two core `exec` subsystems are now de-risked hosted: the scheduler spine (H4)
-and memory (H5), plus the host-call boundary (H3). Remaining: a host
-console/display (stdout now, then a Cocoa/Metal or X11 window — with an unattended
-way to *observe* it, e.g. render-to-PNG like the M9 screendump); then bootstrap
-the AROS module/library system (`MakeLibrary`/`SetFunction`, the BPTR/jumptable
-machinery) and stand a tiny `exec.library` up on H4+H5. After that it's the graft
-itself: AROS's own crosstools for `aarch64-darwin` + its build system.
+The two core `exec` subsystems are de-risked hosted and *composed* (H4+H5+H6),
+plus the host-call boundary (H3). Remaining: a host console/display (stdout now,
+then a Cocoa/Metal or X11 window — with an unattended way to *observe* it, e.g.
+render-to-PNG like the M9 screendump); then bootstrap the AROS module/library
+system (`MakeLibrary`/`SetFunction`, the BPTR/jumptable machinery) and stand a
+tiny `exec.library` up on this kernel. After that it's the graft itself: AROS's
+own crosstools for `aarch64-darwin` + its build system.
