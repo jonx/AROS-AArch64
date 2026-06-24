@@ -44,17 +44,21 @@ void timer_init(unsigned hz)
     __asm__ volatile("msr cntp_ctl_el0, %0" :: "r"(1UL));   // ENABLE=1, IMASK=0
 }
 
-// Called from the IRQ/FIQ vector. Ack, handle, re-arm, EOI.
-void irq_dispatch(void)
+// Called from the IRQ/FIQ vector. Ack, handle, re-arm, EOI. Returns the frame to
+// resume — the same one, or (via the scheduler, M10) another task's.
+struct trapframe *irq_dispatch(struct trapframe *tf)
 {
     uint32_t iar = r32(GICC_BASE, GICC_IAR);
     uint32_t intid = iar & 0x3ff;
+    struct trapframe *next = tf;
     if (intid == TIMER_INTID) {
         timer_ticks++;
         __asm__ volatile("msr cntp_tval_el0, %0" :: "r"(timer_interval));  // re-arm + deassert
+        next = schedule(tf);                    // preemptive switch (no-op until M10 arms it)
     }
     if (intid < 1020)
         w32(GICC_BASE, GICC_EOIR, iar);
+    return next;
 }
 
 void irqs_enable(void)

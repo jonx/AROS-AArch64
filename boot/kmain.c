@@ -64,10 +64,9 @@ void kmain(unsigned long x0_at_entry) {
     // M8: minimal shell — reads injected keystrokes from the UART, dispatches.
     shell_run();
 
-    // M9: framebuffer via ramfb. Draw, then stay up ~3s so the harness can grab a
-    // QMP screendump before we exit cleanly.
+    // M9: framebuffer via ramfb (stays up through the M10 window for the screendump).
     fb_init();
-    uint64_t t = timer_ticks;
-    while (timer_ticks < t + 300)        // ~3s at 100 Hz
-        __asm__ volatile("wfi");
+
+    // M10: preemptive multitasking — the timer IRQ switches tasks (no yields).
+    sched_demo();
 }

@@ -17,6 +17,17 @@ void shell_run(void);
 // Exception vectors (M3): install VBAR_EL1; defined in exc.c / vectors.S.
 void vectors_init(void);
 
+// Full trap frame saved by vectors.S (offsets are hardcoded there: x0..x30 at
+// 0..240, elr at 256, spsr at 264). The handler may return a DIFFERENT frame to
+// resume another task (preemption, M10).
+struct trapframe {
+    uint64_t x[31];   // x0..x30
+    uint64_t _pad;
+    uint64_t elr;
+    uint64_t spsr;
+};
+struct trapframe *exc_handler(struct trapframe *tf, unsigned long kind);
+
 // MMU (M4): build an identity map and enable translation; defined in mmu.c.
 void mmu_init(void);
 
@@ -24,8 +35,13 @@ void mmu_init(void);
 void gic_init(void);
 void timer_init(unsigned hz);
 void irqs_enable(void);
-void irq_dispatch(void);
+struct trapframe *irq_dispatch(struct trapframe *tf);
 extern volatile uint64_t timer_ticks;
+
+// Preemptive scheduler (M10): defined in sched.c. schedule() is called from the
+// timer IRQ and may return another task's frame; sched_demo runs the demo.
+struct trapframe *schedule(struct trapframe *tf);
+void sched_demo(void);
 
 // Physical page allocator (M6): defined in pmm.c.
 void pmm_init(void);
