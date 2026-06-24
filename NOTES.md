@@ -188,6 +188,24 @@ Screen-Recording (TCC) permission — a manual approval that violates the no-man
 steps rule. Render-to-PNG sidesteps that entirely; the window is a later
 human-facing nicety, not a loop dependency.
 
+### H8: the library/LVO mechanism — and a host-risk that ISN'T one
+Before spiking the library system I asked the host-specific question: does AROS
+build its library jump vectors as *runtime-generated code*? If so, doing that
+hosted hits Apple Silicon's W^X / MAP_JIT wall (you can't just write executable
+memory). Grounded the answer in the AROS tree: 32-bit ARM and m68k DO use
+executable `FULLJMP` vectors — but 64-bit native arches do not.
+`arch/x86_64-all/include/aros/cpu.h` says it outright: *"On x86-64 we use vector
+table consisting only of pointers. We do not include jump code in them."*
+(`__AROS_USE_FULLJMP` is off; `FullJumpVec` is only for `LoadSeg` headers.)
+AArch64 follows the same 64-bit convention. **So the library system is plain
+function pointers + indirect calls — no codegen, no W^X wall.** H8
+(`hosted/library.c`) proves it live: `MakeLibrary` builds the `JumpVec` table
+below the base, calls dispatch through `__AROS_GETVECADDR`, and `SetFunction`
+hot-patches a vector (contract from `rom/exec/setfunction.c`: negative byte
+offset `-LVO*LIB_VECTSIZE`, `Forbid()`, return old vector). This is the grounding
+discipline catching a *non*-problem before I built a workaround for it — as
+valuable as catching a real one.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI

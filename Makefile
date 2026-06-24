@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-library clean
 
 build:
 	@mkdir -p build
@@ -103,6 +103,13 @@ hosted-display: | build
 	clang -arch arm64 -O2 -Wall -Wextra hosted/display.c -o build/host-display \
 		-framework ImageIO -framework CoreGraphics -framework CoreFoundation
 	BIN=build/host-display ./harness/run-hosted.sh '[H7] hosted display ok'
+
+# H8: a tiny exec.library via the real AROS LVO mechanism — JumpVec table built by
+# MakeLibrary, indirect LVO dispatch, SetFunction hot-patch. Data-pointer vectors,
+# so no Apple-Silicon W^X / MAP_JIT wall.
+hosted-library: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/library.c -o build/host-library
+	BIN=build/host-library ./harness/run-hosted.sh '[H8] hosted exec.library ok'
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.
