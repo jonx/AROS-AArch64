@@ -106,11 +106,29 @@ the window is a thin human-facing addition for later.
 
 ![AROS hosted display](docs/h7-hosted-display.png)
 
+### H8 — A tiny exec.library via the real LVO mechanism ✅
+Everything in AROS is a library, reached through a jump-vector table just BELOW
+the library base, indexed by a negative LVO. H8 stands a minimal `exec.library`
+up that way, hosted, exercising the three pieces that make AROS modular:
+`MakeLibrary`/`MakeFunctions` (build the `JumpVec` table below the base), the LVO
+call (indirect dispatch via `__AROS_GETVECADDR(base, lvo)`), and `SetFunction`
+(hot-patch a vector — the AROS hooking mechanism, contract grounded against
+`rom/exec/setfunction.c`). **Key grounded result:** on 64-bit native AROS the
+vector table is *"only pointers, no jump code"* (`arch/x86_64-all/include/aros/
+cpu.h`, `__AROS_USE_FULLJMP` OFF) — so AArch64 libraries are plain function
+pointers + indirect calls, with **no runtime code generation, hence no Apple-
+Silicon W^X / MAP_JIT wall**. This spike proves it live. **Observe:** `[H8]
+hosted exec.library ok` — `AllocMem`/`FreeMem`/`AvailMem` dispatched through the
+LVO table; `SetFunction` patch routes the next call through a wrapper. **Files:**
+`hosted/library.c`. **Run:** `make hosted-library`.
+
 ### Beyond — toward a real hosted AROS
-The core `exec` subsystems are de-risked hosted and *composed* (H4+H5+H6), the
-host-call boundary is bridged (H3), and the host display is live (H7). The big
-remaining piece is the AROS module/library system — `MakeLibrary`/`SetFunction`
-and the negative-offset jump-table (LVO) machinery that makes everything in AROS
-a library — used to stand a tiny `exec.library` up on this kernel. After that
-it's the graft itself: AROS's own crosstools for `aarch64-darwin` + its build
-system, the point where spiking ends and integration begins.
+The full host-facing surface is now de-risked: the AROS-side machinery runs
+hosted (H1/H2), the host-call boundary is bridged (H3), the two core `exec`
+subsystems are faithful and composed (H4/H5/H6), the host display is live (H7),
+and the library/module mechanism works hosted with no W^X wall (H8). What's left
+is no longer a *hosted* unknown — it's **the graft**: AROS's own crosstools for
+`aarch64-darwin` + its `configure`/`mmake` build system, then bootstrapping the
+real `exec.library` from the AROS tree on top of these proven primitives. That's
+where cheap spiking ends and large-scale integration begins — the honest mountain
+flagged from the start.
