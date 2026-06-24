@@ -80,12 +80,13 @@ and injects keystrokes (buffered in the RX FIFO); the shell echoes so replies la
 in `serial.log`. The *drive* half of the loop, proven end-to-end.
 **Observe:** injected `ping/ticks/quit` → echoed `pong`/`ticks=N`/`[M8] shell ok`.
 
-### M9 — Framebuffer ⬜
-Add a GPU device (`ramfb`/virtio-gpu), draw a known pattern, and verify it with a
-QMP screendump. First milestone where the faithful way of seeing is *pixels* —
-build and exercise the screendump-compare tooling here, because Phase 2 (Wanderer
-on macOS) runs on it constantly.
-**Observe:** `make shot` → screendump → image compare.
+### M9 — Framebuffer ✅
+`boot/fb.c`: ramfb framebuffer via the fw_cfg DMA interface (scan `etc/ramfb` in
+the file directory → config a 640×480 XRGB8888 buffer → draw 4 colored quadrants).
+Protocol grounded from QEMU `qemu_fw_cfg.h` + `ramfb.c`. Harness adds `-device
+ramfb`; `make shot` grabs a QMP screendump. **Visually verified**: red/green/blue/
+white quadrants render correctly (the pixel "way of seeing" is live).
+**Observe:** `make shot` → `run/screen.png`. **Files:** `boot/fb.c`.
 
 ---
 

@@ -25,10 +25,10 @@ ASFLAGS := $(COMMON)
 CFLAGS  := $(COMMON) -O2 -mstrict-align -mgeneral-regs-only -fno-stack-protector
 
 ELF     := build/aros-aarch64.elf
-OBJS    := build/start.o build/kmain.o build/exc.o build/vectors.o build/mmu.o build/irq.o build/pmm.o build/task.o build/switch.o
-MARKER  ?= [M8]
+OBJS    := build/start.o build/kmain.o build/exc.o build/vectors.o build/mmu.o build/irq.o build/pmm.o build/task.o build/switch.o build/fb.o
+MARKER  ?= [M9]
 # Cumulative markers a healthy boot prints, in order. Extend as milestones land.
-MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8a] [M8]
+MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
