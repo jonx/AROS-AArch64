@@ -235,6 +235,21 @@ processed exactly as many (no message loss), zero wrong replies, both tasks
 blocking on their ports under preemption. With H4/H5/H6/H8/H9 this rounds out the
 essential exec: scheduling, memory, libraries, signals, messages.
 
+### H11: a device backed by a real macOS file — the thesis, end to end
+This is the Phase-2 mission statement made concrete: *macOS owns the drivers,
+AROS reaches them via standard exec I/O.* `hosted/device.c` runs the real exec
+I/O path — a client builds an `IOStdReq`, `DoIO()` does `BeginIO` (`PutMsg` to the
+device's port) then `WaitIO` (block for the reply), and a device task performs the
+actual `pread`/`pwrite` on a real file — grounded against `exec/io.h` and
+`rom/exec/doio.c`. It composes the whole stack: scheduler (H6) + Wait/Signal (H9)
++ message ports (H10), and the host syscalls run on a switched task stack under
+preemption (the H1 property, now at the device layer). Verified two independent
+ways: the client checks each read == its write, and main then re-reads the file
+*through the host* to confirm the bytes physically landed (128 bytes all equal to
+the last round's pattern). 62 round-trips, zero errors. The `(struct Message *)io
+== &io->io_Message` identity (io_Message first in IOStdReq) is what lets a replied
+message be cast straight back to its IORequest — faithful to AROS.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
