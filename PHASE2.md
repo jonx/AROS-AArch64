@@ -122,13 +122,26 @@ hosted exec.library ok` — `AllocMem`/`FreeMem`/`AvailMem` dispatched through t
 LVO table; `SetFunction` patch routes the next call through a wrapper. **Files:**
 `hosted/library.c`. **Run:** `make hosted-library`.
 
+### H9 — exec Wait()/Signal(): tasks that block ✅
+H4/H6 gave preemptive round-robin; H9 adds the primitive that makes it a *real*
+exec — tasks that **block** on signals and **wake**. Grounded against
+`rom/exec/{wait,signal}.c`: `Wait(sigset)` parks the task (`TS_WAIT`, onto
+`TaskWait`) and yields until a bit arrives; `Signal(task,bits)` sets `tc_SigRecvd`
+and, if the task waited on those bits, moves it back to `TaskReady`. A blocked task
+is simply off the ready list, so the scheduler never dispatches it until woken.
+**Observe:** `[H9] ... Wait/Signal ok` — a producer↔consumer ping-pong runs
+lock-step (100=100, each blocking 100×) while a free-running task does ~1000× more
+work, proving the pair really yield the CPU; no lost wakeups (Wait checks
+`tc_SigRecvd` first). **Files:** `hosted/signal.c`. **Run:** `make hosted-signal`.
+
 ### Beyond — toward a real hosted AROS
-The full host-facing surface is now de-risked: the AROS-side machinery runs
-hosted (H1/H2), the host-call boundary is bridged (H3), the two core `exec`
-subsystems are faithful and composed (H4/H5/H6), the host display is live (H7),
-and the library/module mechanism works hosted with no W^X wall (H8). What's left
-is no longer a *hosted* unknown — it's **the graft**: AROS's own crosstools for
-`aarch64-darwin` + its `configure`/`mmake` build system, then bootstrapping the
-real `exec.library` from the AROS tree on top of these proven primitives. That's
-where cheap spiking ends and large-scale integration begins — the honest mountain
-flagged from the start.
+The full host-facing surface is de-risked: the AROS-side machinery runs hosted
+(H1/H2), the host-call boundary is bridged (H3), the core `exec` subsystems are
+faithful and composed — scheduler, memory, blocking (H4/H5/H6/H9) — the host
+display is live (H7), and the library/module mechanism works hosted with no W^X
+wall (H8). What's left is no longer a *hosted* unknown — it's **the graft**:
+AROS's own crosstools for `aarch64-darwin` + its `configure`/`mmake` build system,
+then bootstrapping the real `exec.library` from the AROS tree on these proven
+primitives. The grounded, code-level entry points are in [GRAFT.md](GRAFT.md), with
+a first patch set in [`graft/`](graft/). That's where cheap spiking ends and
+large-scale integration begins — the honest mountain flagged from the start.
