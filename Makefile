@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi clean
 
 build:
 	@mkdir -p build
@@ -72,6 +72,12 @@ hosted-run: hosted
 hosted-preempt: | build
 	clang -arch arm64 -O2 -Wall -Wextra hosted/preempt.c -o build/host-preempt
 	BIN=build/host-preempt ./harness/run-hosted.sh '[H2]'
+
+# H3: the host-call ABI shim — marshal AROS-side args into Apple's arm64 variadic
+# ABI (varargs on the stack). The make-or-break cross-ABI boundary, hand-written.
+hosted-abi: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/abishim.c hosted/abishim.S -o build/host-abishim
+	BIN=build/host-abishim ./harness/run-hosted.sh '[H3] host-call ABI shim ok'
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.

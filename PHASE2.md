@@ -31,12 +31,20 @@ Grounded: `-arch arm64` ⇒ `__DARWIN_OPAQUE_ARM_THREAD_STATE64==0`, so the plai
 `__ss.{__x,__fp,__lr,__sp,__pc}` fields are valid (no pointer-auth surgery).
 **Observe:** `[H2] ... A ran=N B ran=M (no yields)`. **Files:** `hosted/preempt.c`.
 
-### H3 — The host-call ABI shim ⬜
+### H3 — The host-call ABI shim ✅
 The make-or-break layer (it killed the old Darwin-PPC port). Real AROS code is
-built by AROS's own crosstools with the AROS ABI; calling macOS functions crosses
-into Apple's arm64 ABI, which has quirks (variadic args on the stack, stack
-alignment, char/short promotion). H1 used a matching ABI (Apple clang both sides);
-H3 must bridge the real cross-ABI boundary. Ground against Apple's arm64 ABI docs.
+built to generic AAPCS64; calling macOS libc crosses into Apple's arm64 ABI,
+which diverges — above all, **variadic args go on the stack, not in registers**,
+even when arg registers are free. `hosted/abishim.S` is the hand-written
+marshaller that bridges an AROS-side call descriptor (fixed args + a 64-bit arg
+array) into Apple's variadic ABI; a double rides through as its bit pattern
+(Apple parks variadic FP in the integer stack slots too). Grounded against the
+exact assembly this machine's `clang` emits (not the JS-only Apple doc) — all
+four AAPCS64 divergences confirmed empirically; see NOTES.md "H3 grounding".
+**Observe:** `[H3] host-call ABI shim ok: ...` — correct path prints `11 22 33`/
+`7 3.5 Z`/`<AROS>`, a naive register-passing control prints `0 0 0` (divergence
+shown real *and* bridged). **Files:** `hosted/abishim.S`, `hosted/abishim.c`.
+**Run:** `make hosted-abi`.
 
 ### Beyond — toward a real hosted AROS
 Map AROS `exec` onto this process: the scheduler (H2) becomes `core_Schedule`/
