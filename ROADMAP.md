@@ -65,10 +65,14 @@ hosted-test`). Done so far:
   **no Apple-Silicon W^X / MAP_JIT wall**.
 
 **Remaining — the graft (the honest mountain):** stop spiking and integrate the
-real AROS tree — build AROS's own crosstools for `aarch64-darwin`, drive its
-`configure`/`mmake` build system to emit a hosted binary, and bootstrap the real
-`exec.library` on top of these proven primitives. That's large-scale integration,
-not a session-sized spike.
+real AROS tree. Grounded entry points are mapped in [GRAFT.md](GRAFT.md): AROS has
+a *darwin hosted* backend (`arch/all-darwin` + `arch/all-unix`) but it lacks
+AArch64 and is bit-rotted to ~2010 Xcode. The punch list — add the `aarch64` case
+to `configure`'s darwin flavour, write `arch/all-darwin/kernel/cpu_aarch64.h` (the
+H2/H4 `mcontext` glue), fix the wrong `arch/aarch64-all` `ExceptionContext`, point
+the crosstools at native `clang -arch arm64`, then drive `configure`/`mmake` — is
+large-scale integration against a backend nobody's built in a decade, not a
+session-sized spike.
 
 Note: AArch64 binaries share their software island with the ARM Pi world, not the
 big x86 AROS catalog — so app availability is a Phase-2/3 concern (recompiling
