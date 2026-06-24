@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem clean
 
 build:
 	@mkdir -p build
@@ -84,6 +84,12 @@ hosted-abi: | build
 hosted-exec: | build
 	clang -arch arm64 -O2 -Wall -Wextra hosted/exec.c -o build/host-exec
 	BIN=build/host-exec ./harness/run-hosted.sh '[H4] hosted AROS scheduler ok'
+
+# H5: the AROS exec memory model, hosted — MemHeader/MemChunk first-fit + coalesce
+# free-list allocator over an mmap'd region (macOS owns the pages).
+hosted-mem: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/mem.c -o build/host-mem
+	BIN=build/host-mem ./harness/run-hosted.sh '[H5] hosted AROS AllocMem ok'
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.
