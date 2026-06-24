@@ -109,6 +109,29 @@ a deliberately-naive register-passing control prints `0 0 0`, so the divergence 
 shown to be real *and* bridged. This is the boundary that killed Darwin-PPC; it's
 now de-risked the same cheap way as H1/H2 — a spike, grounded, verified live.
 
+### H4: the AROS exec scheduler, hosted (grounded against the real tree)
+After H2 proved hosted preemption, I refused to leave it an ad-hoc round-robin.
+Read the actual AROS scheduler — `arch/arm-native/kernel/kernel_scheduler.c`
+(`core_Schedule`/`core_Switch`/`core_Dispatch`), `kernel_cpu.c`
+(`cpu_Switch`/`cpu_Dispatch` + `STORE_/RESTORE_TASKSTATE`), the exec stubs in
+`rom/exec/{dispatch,schedule,reschedule,switch}.c`, and `struct Task` +
+`TS_*` in `include/exec/tasks.h` — then rebuilt the hosted scheduler to those
+exact names, signatures and contracts (`hosted/exec.c`). The macOS main thread is
+modelled as a low-priority "boot" anchor task; the SIGALRM handler is
+`core_ExitInterrupt`. Stacks come from `mmap` with real `tc_SPLower/SPUpper`
+bounds (the stack-probe check in `core_Switch` is live, not decoration). Proven in
+the loop (`make hosted-exec` → `[H4]`): two pri-1 tasks round-robin within ~2%,
+two pri-0 tasks starve — i.e. AROS's strict-priority + equal-priority-FIFO
+semantics, reproduced exactly. This is the scheduler *spine* both the native and
+hosted ports share, now exercised on the MacBook before the graft.
+
+**Grounding caught a real upstream bug to fix at the graft:** AROS's
+`arch/aarch64-all/include/aros/cpucontext.h` defines `struct ExceptionContext` as
+`{ IPTR r[29]; IPTR fp; IPTR sp; IPTR pc; }` — it mislabels x30 as `fp`, omits
+SPSR_EL1 entirely, and has no FP/NEON pointer. Our Phase-1 trap frame
+(`boot/kern.h`: `x[31]` + `elr` + `spsr`) is the correct shape. When we graft, we
+*fix* that header rather than inherit it — a concrete, grounded AROS contribution.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI

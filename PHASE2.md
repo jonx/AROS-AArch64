@@ -46,7 +46,24 @@ four AAPCS64 divergences confirmed empirically; see NOTES.md "H3 grounding".
 shown real *and* bridged). **Files:** `hosted/abishim.S`, `hosted/abishim.c`.
 **Run:** `make hosted-abi`.
 
+### H4 — The AROS exec scheduler model, hosted ✅
+H2 proved hosted preemption with an ad-hoc round-robin; H4 reshapes it into AROS's
+*real* scheduler, grounded verbatim against `arch/arm-native/kernel/{kernel_scheduler.c,
+kernel_cpu.c}` and `include/exec/tasks.h`. A priority-ordered `SysBase->TaskReady`
+list (real `Enqueue`/`GetHead`/`Remove` semantics), `struct Task` with `TS_*`
+states, and the exact call graph: `timer IRQ → core_ExitInterrupt → core_Schedule
+(BOOL) → cpu_Switch (save regs; core_Switch: TS_RUN→TS_READY, Enqueue) →
+cpu_Dispatch (core_Dispatch: dequeue highest-pri, restore)`. The hosted arch layer
+saves/restores through the SIGALRM `mcontext` (the H2 mechanism); stacks are
+`mmap`'d with real `tc_SPLower/SPUpper` bounds. **Observe:** `[H4] ... pri-1
+round-robins fairly, pri-0 starved` — two pri-1 tasks alternate within ~2%
+(A=16801 B=17092), two pri-0 tasks get `0` (strict priority). **Files:**
+`hosted/exec.c`. **Run:** `make hosted-exec`.
+
 ### Beyond — toward a real hosted AROS
-Map AROS `exec` onto this process: the scheduler (H2) becomes `core_Schedule`/
-`cpu_Switch`; memory pools over `mmap`; a console/display via the host (stdout
-first, then a Cocoa/Metal or X11 window); then bootstrap the AROS module system.
+Remaining to map AROS `exec` onto this process: memory pools over `mmap`
+(`AllocMem`/`MemHeader`); a host console/display (stdout now, then a Cocoa/Metal
+or X11 window — with an unattended way to *observe* it, e.g. render-to-PNG like
+the M9 screendump); then bootstrap the AROS module/library system. The scheduler
+spine (H4) and the host-call boundary (H3) are the load-bearing pieces and are
+now de-risked.
