@@ -26,9 +26,11 @@ CFLAGS  := $(COMMON) -O2 -mstrict-align -mgeneral-regs-only -fno-stack-protector
 
 ELF     := build/aros-aarch64.elf
 OBJS    := build/start.o build/kmain.o build/exc.o build/vectors.o build/mmu.o build/irq.o build/pmm.o build/task.o build/switch.o
-MARKER  ?= [M7]
+MARKER  ?= [M8]
 # Cumulative markers a healthy boot prints, in order. Extend as milestones land.
-MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7a] [M7]
+MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8a] [M8]
+# Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
+INPUT   ?= ping\nticks\nquit\n
 
 .PHONY: image run shot dbg test clean
 
@@ -48,16 +50,16 @@ image: $(ELF)
 	@echo ">> built $(ELF)"
 
 run: image
-	IMG=$(ELF) ./harness/run.sh '$(MARKER)'
+	IMG=$(ELF) INPUT='$(INPUT)' ./harness/run.sh '$(MARKER)'
 
 shot: image
-	IMG=$(ELF) SHOT=1 ./harness/run.sh '$(MARKER)'
+	IMG=$(ELF) INPUT='$(INPUT)' SHOT=1 ./harness/run.sh '$(MARKER)'
 
 dbg: image
 	SYMS=$(ELF) ./harness/lldb-dump.sh
 
 test: image
-	IMG=$(ELF) ./harness/test.sh $(MARKERS)
+	IMG=$(ELF) INPUT='$(INPUT)' ./harness/test.sh $(MARKERS)
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.

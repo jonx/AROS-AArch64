@@ -73,11 +73,12 @@ A/B alternation with each task's loop counter preserved and distinct stack
 addresses. Foreshadows AROS `cpu_Switch`/`cpu_Dispatch`.
 **Observe:** `[M7] context switch ok`. **Files:** `boot/switch.S`, `boot/task.c`.
 
-### M8 — Minimal shell ⬜
-Read characters back *from* the UART (via the harness's serial socket — the
-"drive," not just "observe", half of the channel) and echo/dispatch a couple of
-commands. Proves input as well as output.
-**Observe:** harness injects keystrokes over the socket, greps the echoed reply.
+### M8 — Minimal shell ✅
+UART RX (`uart_getc`, PL011 FR.RXFE) + a line shell in `kmain.c` (`ping`→`pong`,
+`ticks`→count, `quit`→exit). The harness `INPUT=...` connects to the serial socket
+and injects keystrokes (buffered in the RX FIFO); the shell echoes so replies land
+in `serial.log`. The *drive* half of the loop, proven end-to-end.
+**Observe:** injected `ping/ticks/quit` → echoed `pong`/`ticks=N`/`[M8] shell ok`.
 
 ### M9 — Framebuffer ⬜
 Add a GPU device (`ramfb`/virtio-gpu), draw a known pattern, and verify it with a
