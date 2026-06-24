@@ -98,6 +98,41 @@ assumed. This is the project's standing rule: ground it, don't dream it.
 - Wire the framebuffer/screendump path (M9) earlier as dead code, so the "pixel"
   way of seeing is exercised before Wanderer actually needs it.
 
+## Phase 1 retrospective (stepping back)
+
+**What we built:** a complete *native* AArch64 bring-up on QEMU virt — boot → C
+runtime → exception vectors → MMU → timer IRQ → page allocator → cooperative
+scheduler → shell → framebuffer. ~840 lines across 12 files, each milestone
+grounded against an authoritative source and verified live in the loop.
+
+**What's genuinely solid:** the autonomous loop (build→boot→observe/drive→verdict,
+all channels: serial, fault trace, lldb, framebuffer, plus injected input + a
+regression matrix); the grounding discipline, which caught three real errors I'd
+otherwise have shipped (x0≠DTB, GICv2-not-v3, AArch32-vs-A64 semihosting); and a
+clean file-per-concern layout that mirrors AROS's `arch/<cpu>-native`.
+
+**Known simplifications (honest debt, not bugs):**
+- Single core — secondaries parked, no PSCI `CPU_ON`/SMP.
+- Identity map only — no virtual address spaces, VA==PA, one L1 table.
+- *Cooperative* scheduler — the timer IRQ counts ticks but does not yet drive
+  preemption. Making it preemptive is the obvious next native step.
+- `pmm` is a flat free-list; no contiguous alloc; RAM size hardcoded to `-m 512`
+  (no DTB parse yet).
+- Framebuffer in `.bss`, no cache maintenance (fine under QEMU's no-cache model;
+  real hardware would need a clean-to-PoC).
+- Everything at EL1 — no EL0/userspace, no FP/NEON.
+
+**Strategic insight worth being honest about:** Phase 1 is the *native* CPU
+backend. For the original "AROS on my MacBook" **hosted** dream, the directly
+reusable pieces are the toolchain, the AArch64 ABI/calling-convention knowledge,
+and the context switch (`switch.S`) — *not* the bare-metal drivers (MMU, GIC,
+vectors, ramfb), because macOS provides those. So the native track (what we have)
+and the hosted track (the MacBook payoff) share a spine — the AArch64 `exec` /
+`kernel.resource` logic — but diverge on the driver layer. Both still require the
+**graft**: turning these primitives into actual AROS `cpu_Switch`/`core_*`/`Krn*`
+functions wired into `rom/kernel` + `exec.library`. That graft is the real Phase-2
+mountain, native or hosted.
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
