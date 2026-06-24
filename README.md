@@ -16,6 +16,7 @@ brew install qemu llvm lld     # clang + ld.lld + lldb + qemu-system-aarch64
 make run                       # build an AArch64 ELF, boot on QEMU, verify latest milestone
 make test                      # boot once, assert every milestone marker
 make shot                      # also capture a framebuffer screendump
+make hosted-test               # Phase 2: build + run every hosted spike (H1–H8)
 ```
 
 `make run` (latest milestone) and `make test` (full regression) both go green;
