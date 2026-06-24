@@ -62,6 +62,7 @@ toolchain) and verified in the same unattended loop (`make hosted-*`):
 | H8 | library/LVO | a tiny `exec.library` via the real jump-vector mechanism + `SetFunction` |
 | H9 | Wait/Signal | tasks that genuinely **block** and **wake** — the real exec primitive |
 | H10 | message ports | `PutMsg`/`WaitPort`/`GetMsg`/`ReplyMsg` — exec IPC, the device-I/O shape |
+| H11 | device → real file | AROS `DoIO`/`IORequest` drives `pread`/`pwrite` on a real macOS file |
 
 ![AROS hosted on macOS — H7](docs/h7-hosted-display.png)
 
@@ -76,7 +77,7 @@ decision log (incl. the real bugs grounding caught).
 | Path | Purpose |
 |------|---------|
 | `boot/` | the kernel: `start.S`, `uart.c`, `exc.c`+`vectors.S`, `mmu.c`, `irq.c`, `pmm.c`, `task.c`+`switch.S`, `shell.c`, `fb.c`, `kmain.c` |
-| `hosted/` | Phase 2 spikes: `host.c`/`switch.S` (H1), `preempt.c` (H2), `abishim.*` (H3), `exec.c` (H4), `mem.c` (H5), `kern.c` (H6), `display.c` (H7), `library.c` (H8), `signal.c` (H9), `msgport.c` (H10) |
+| `hosted/` | Phase 2 spikes: `host.c`/`switch.S` (H1), `preempt.c` (H2), `abishim.*` (H3), `exec.c` (H4), `mem.c` (H5), `kern.c` (H6), `display.c` (H7), `library.c` (H8), `signal.c` (H9), `msgport.c` (H10), `device.c` (H11) |
 | `harness/run.sh` | the loop: build → boot headless → observe/drive → uniform verdict |
 | `harness/run-hosted.sh` | the hosted loop: run the macOS binary → observe stdout/PNG → verdict |
 | `harness/qmp.py` | QMP client (framebuffer screendump) |

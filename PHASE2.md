@@ -146,12 +146,24 @@ message arrives; `GetMsg` = `RemHead`; `ReplyMsg` = `PutMsg` to the reply port.
 ports. **Files:** `hosted/msgport.c`. **Run:** `make hosted-msgport`. This is the
 canonical client/server I/O loop a hosted AROS uses to reach host resources.
 
+### H11 — A device backed by a real macOS file ✅
+The Phase-2 thesis, end to end: *macOS owns the drivers, AROS reaches them via
+standard exec I/O.* A client builds an `IOStdReq` and `DoIO()`s it; the request
+travels the real exec I/O path — `BeginIO` → `PutMsg` → a device task → `ReplyMsg`
+→ `WaitIO` (grounded against `exec/io.h` + `rom/exec/doio.c`) — and the device
+performs the actual work on a **real macOS file** (`pread`/`pwrite`). The host
+syscalls run on a switched task stack under preemption (the H1 property, now at the
+device layer). **Observe:** `[H11] hosted device ok` — 62 write+read round-trips,
+zero errors, and main then re-reads the file *independently via the host* to confirm
+the bytes physically landed (128 bytes all matching the last pattern). **Files:**
+`hosted/device.c`. **Run:** `make hosted-device`.
+
 ### Beyond — toward a real hosted AROS
 The full host-facing surface is de-risked: the AROS-side machinery runs hosted
 (H1/H2), the host-call boundary is bridged (H3), the core `exec` subsystems are
 faithful and composed — scheduler, memory, blocking, IPC (H4/H5/H6/H9/H10) — the
-host display is live (H7), and the library/module mechanism works hosted with no
-W^X wall (H8). What's left is no longer a *hosted* unknown — it's **the graft**:
+host display is live (H7), the library/module mechanism works hosted with no W^X
+wall (H8), and the full device-I/O path reaches a real host resource (H11). What's left is no longer a *hosted* unknown — it's **the graft**:
 AROS's own crosstools for `aarch64-darwin` + its `configure`/`mmake` build system,
 then bootstrapping the real `exec.library` from the AROS tree on these proven
 primitives. The grounded, code-level entry points are in [GRAFT.md](GRAFT.md), with
