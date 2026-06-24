@@ -32,30 +32,43 @@ a `make run` that builds an AArch64 ELF, boots it headless on QEMU `virt`, and
 emits one uniform PASS/FAIL verdict. Observation channels validated on the Mac:
 serial markers, QEMU fault trace, lldb CPU-state. See [NOTES.md](NOTES.md).
 
-## Phase 1 — AArch64 backend on QEMU `virt`  (in progress)
+## Phase 1 — AArch64 backend on QEMU `virt`  ✅ (done)
 
-Bring the lowest layer up on 64-bit ARM, on a fully observable target. Milestones
-**A0…M9**: loop → serial → C runtime → exception vectors → MMU → timer IRQ →
-physical memory → context switch → shell → framebuffer. Detail + status in
-[PHASE1.md](PHASE1.md). **Currently: M2 (C runtime).**
+Brought the lowest layer up on 64-bit ARM, on a fully observable target.
+Milestones **M1…M10**: serial → C runtime → exception vectors → MMU → timer IRQ →
+physical memory → context switch → shell → framebuffer → **preemptive
+multitasking**. All green in the loop (`make test`); detail in
+[PHASE1.md](PHASE1.md), retrospective in [NOTES.md](NOTES.md). Standalone
+deliverable: AROS's first *native* AArch64 bring-up.
 
-Exit criteria: AROS's bring-up primitives (the things `exec` + an AArch64
-`kernel.resource` depend on) demonstrably working on QEMU, each gated by a green
-loop.
+## Phase 2 — Hosted on macOS  (in progress)
 
-## Phase 2 — Hosted on macOS  (planned)
+AROS as a native arm64 macOS process, macOS owning every driver. Rather than
+attempt the full port at once, **de-risk the scary parts cheapest-first** — each
+a standalone, grounded, loop-verified spike (`make hosted-*`, all green via `make
+hosted-test`). Done so far:
 
-Swap the platform layer from bare-metal-QEMU to a process running under macOS,
-so macOS owns every driver. The payoff: AROS in a window on the MacBook Air.
+- **H1/H2 foundation + preemption** — our bare-metal context switch runs at EL0 in
+  a macOS process; SIGALRM-as-timer + `mcontext` swap gives hosted preemption.
+- **H3 host-call ABI shim** — the make-or-break boundary (it killed Darwin-PPC).
+  Bridges AROS→Apple's arm64 ABI; grounded the divergences (variadic-on-stack &c)
+  against the live compiler. ✅ primary risk retired.
+- **H4 scheduler / H5 memory / H6 composition** — the real AROS `exec` shapes,
+  hosted and grounded against the tree: `core_Schedule`/`cpu_Switch` + priority
+  `TaskReady`; the `MemHeader`/`MemChunk` allocator over `mmap`; the two composed
+  into a tiny exec with `Forbid`-safe allocation.
+- **H7 display** — AROS draws a framebuffer from its own heap; macOS presents it
+  (ImageIO PNG), observed unattended like M9's screendump. (A live on-screen
+  window is deferred — verifying it unattended needs Screen-Recording permission.)
+- **H8 library/LVO** — a tiny `exec.library` via the real jump-vector mechanism +
+  `SetFunction`; grounded that 64-bit AROS uses data-pointer vectors, so there's
+  **no Apple-Silicon W^X / MAP_JIT wall**.
 
-- **Mach-O bootstrap** — a normal macOS executable that loads the AROS image
-  (the AROSBootstrap equivalent), instead of a bare-metal `-kernel` blob.
-- **Host-call ABI shim** — the make-or-break layer. Every AROS→host call (memory,
-  threads, I/O) must honour Apple's AArch64 calling convention exactly. This is
-  the boundary that historically killed the Darwin-PPC hosted port; treat it as
-  the primary risk.
-- **Display / input / sound via the host** — start with X11 (XQuartz) since the
-  old Intel Darwin port had prior art there, then consider something more native.
+**Remaining — the graft (the honest mountain):** stop spiking and integrate the
+real AROS tree — build AROS's own crosstools for `aarch64-darwin`, drive its
+`configure`/`mmake` build system to emit a hosted binary, and bootstrap the real
+`exec.library` on top of these proven primitives. That's large-scale integration,
+not a session-sized spike.
 
 Note: AArch64 binaries share their software island with the ARM Pi world, not the
 big x86 AROS catalog — so app availability is a Phase-2/3 concern (recompiling

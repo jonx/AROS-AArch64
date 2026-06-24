@@ -259,6 +259,43 @@ and the hosted track (the MacBook payoff) share a spine — the AArch64 `exec` /
 functions wired into `rom/kernel` + `exec.library`. That graft is the real Phase-2
 mountain, native or hosted.
 
+## Phase 2 retrospective (stepping back)
+
+**What we built:** eight standalone spikes (`hosted/`, `make hosted-test` all
+green) that de-risk the entire *host-facing* surface of a hosted AROS on Apple
+Silicon, each grounded against an authoritative source and verified live:
+foundation + preemption (H1/H2), the host-call ABI boundary (H3), the real `exec`
+scheduler and memory models and their composition (H4/H5/H6), the host display
+(H7), and the library/LVO mechanism (H8). The scariest historical risk — the
+cross-ABI host call that killed Darwin-PPC — is retired.
+
+**What's genuinely solid:** the hosted loop is as unattended as Phase 1 (run the
+Mach-O binary, read stdout or a PNG, get one verdict), and the grounding
+discipline kept paying:
+- it *retired* real risks (Apple's variadic-args-on-stack ABI — H3);
+- it *caught a real composition bug* nothing else could (the `Forbid` compiler
+  barrier — `volatile` orders only volatile-to-volatile, so `-O2` sank allocator
+  writes outside the critical section — H6);
+- it *cleared a non-risk before I built a workaround* (64-bit AROS library vectors
+  are data pointers, so no Apple-Silicon W^X / MAP_JIT wall — H8).
+
+**Honest scope (what these spikes are and aren't):** they are faithful
+reproductions of AROS's *shapes and contracts*, hand-written in standalone files
+(one binary per marker, to fit the harness). They are NOT the AROS tree compiled
+and running. Deliberate simplifications, noted not faked: single underlying thread
+(so `Forbid` needs only a compiler barrier, no CPU fence); allocator drops the
+managed-mem path + index cache; scheduler omits signals/`Wait`, SMP, ETask CPU
+accounting; the display is render-to-PNG, not an on-screen window; LVO numbers are
+illustrative. Each note says what was dropped and why.
+
+**The mountain, named honestly:** every *hosted* unknown is now answered, so the
+remaining work is no longer spike-able — it's the **graft**: build AROS's own
+crosstools for `aarch64-darwin`, drive its `configure`/`mmake` to emit a hosted
+binary, fix the unfinished `arch/aarch64-all` (e.g. the wrong `ExceptionContext`),
+and bootstrap the real `exec.library` on these primitives. That's large-scale
+integration in the AROS tree, not a session-sized spike — and it's the next thing
+to ground rather than reimplement.
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
