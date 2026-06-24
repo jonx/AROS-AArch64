@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt clean
 
 build:
 	@mkdir -p build
@@ -68,6 +68,10 @@ hosted: | build
 
 hosted-run: hosted
 	BIN=$(HOST_BIN) ./harness/run-hosted.sh '[H1]'
+
+hosted-preempt: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/preempt.c -o build/host-preempt
+	BIN=build/host-preempt ./harness/run-hosted.sh '[H2]'
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.
