@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display clean
 
 build:
 	@mkdir -p build
@@ -96,6 +96,13 @@ hosted-mem: | build
 hosted-kern: | build
 	clang -arch arm64 -O2 -Wall -Wextra hosted/kern.c -o build/host-kern
 	BIN=build/host-kern ./harness/run-hosted.sh '[H6] hosted exec ok'
+
+# H7: the host display driver — AROS draws a framebuffer from its heap, macOS
+# presents it (ImageIO PNG). The agent observes the pixels via the PNG file.
+hosted-display: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/display.c -o build/host-display \
+		-framework ImageIO -framework CoreGraphics -framework CoreFoundation
+	BIN=build/host-display ./harness/run-hosted.sh '[H7] hosted display ok'
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.
