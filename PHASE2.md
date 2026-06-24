@@ -60,10 +60,24 @@ round-robins fairly, pri-0 starved` — two pri-1 tasks alternate within ~2%
 (A=16801 B=17092), two pri-0 tasks get `0` (strict priority). **Files:**
 `hosted/exec.c`. **Run:** `make hosted-exec`.
 
+### H5 — The AROS exec memory model, hosted ✅
+AROS exec doesn't `malloc` — it lays a `MemHeader` over a raw region and hands out
+`MemChunk`s from a single-linked, address-ordered free list, coalescing neighbours
+on free. `hosted/mem.c` reproduces that allocator faithfully — the first-fit
+split in `stdAlloc` and the bidirectional coalescing insert in `stdDealloc` —
+grounded verbatim against `rom/exec/memory.c` + `include/exec/memory.h`. The "RAM"
+is one `mmap`'d region: macOS owns the pages, exec owns the policy. Same
+`MEMCHUNK_TOTAL`=16 alignment, `MEMF_CLEAR`/`MEMF_REVERSE`, and `FreeTwice`
+overlap detection. **Observe:** `[H5] hosted AROS AllocMem ok` — a stress battery
+(alignment/no-clobber, free-all→1 chunk, fragment→coalesce, exhaustion→full
+recovery) with every free-list invariant (ordered, non-overlapping, in-bounds,
+`sum==mh_Free`) asserted. **Files:** `hosted/mem.c`. **Run:** `make hosted-mem`.
+
 ### Beyond — toward a real hosted AROS
-Remaining to map AROS `exec` onto this process: memory pools over `mmap`
-(`AllocMem`/`MemHeader`); a host console/display (stdout now, then a Cocoa/Metal
-or X11 window — with an unattended way to *observe* it, e.g. render-to-PNG like
-the M9 screendump); then bootstrap the AROS module/library system. The scheduler
-spine (H4) and the host-call boundary (H3) are the load-bearing pieces and are
-now de-risked.
+The two core `exec` subsystems are now de-risked hosted: the scheduler spine (H4)
+and memory (H5), plus the host-call boundary (H3). Remaining: a host
+console/display (stdout now, then a Cocoa/Metal or X11 window — with an unattended
+way to *observe* it, e.g. render-to-PNG like the M9 screendump); then bootstrap
+the AROS module/library system (`MakeLibrary`/`SetFunction`, the BPTR/jumptable
+machinery) and stand a tiny `exec.library` up on H4+H5. After that it's the graft
+itself: AROS's own crosstools for `aarch64-darwin` + its build system.

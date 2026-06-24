@@ -132,6 +132,23 @@ SPSR_EL1 entirely, and has no FP/NEON pointer. Our Phase-1 trap frame
 (`boot/kern.h`: `x[31]` + `elr` + `spsr`) is the correct shape. When we graft, we
 *fix* that header rather than inherit it — a concrete, grounded AROS contribution.
 
+### H5: the AROS exec memory model, hosted (grounded against the real tree)
+Same discipline as H4, applied to memory. Read the actual allocator —
+`rom/exec/{allocate,deallocate}.c` and the `stdAlloc`/`stdDealloc` core in
+`rom/exec/memory.c`, plus `struct MemHeader`/`MemChunk` in
+`include/exec/memory.h` — and reproduced it faithfully in `hosted/mem.c`:
+first-fit walk of a single-linked free list, split-and-return-first on a partial
+fit, address-ordered coalescing insert on free (merge prev if `p1+bytes==p3`,
+merge next if `p4==p2`), `MEMCHUNK_TOTAL`=16 rounding, `MEMF_CLEAR`/`MEMF_REVERSE`,
+`FreeTwice` overlap detection. The region is one `mmap` — macOS owns the pages,
+exec owns the policy (the hosted memory story). Verified in the loop with a
+stress battery and hard invariants (free-list ordered/non-overlapping/in-bounds,
+`sum(chunks)==mh_Free`, full coalesce back to a single chunk after free-all).
+Deliberately dropped from the spike: the managed-mem (`MemHeaderExt`) path and the
+`mhac` index cache — a lookup accelerator, not a correctness feature. With H4
+(scheduler) this gives the two load-bearing `exec` subsystems, hosted and proven,
+before the graft.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
