@@ -25,10 +25,12 @@ ASFLAGS := $(COMMON)
 CFLAGS  := $(COMMON) -O2 -mstrict-align -mgeneral-regs-only -fno-stack-protector
 
 ELF     := build/aros-aarch64.elf
-OBJS    := build/start.o build/kmain.o
-MARKER  ?= [M2]
+OBJS    := build/start.o build/kmain.o build/exc.o build/vectors.o
+MARKER  ?= [M3]
+# Cumulative markers a healthy boot prints, in order. Extend as milestones land.
+MARKERS ?= [M2] [M3a] [M3b] [M3c] [M3]
 
-.PHONY: image run shot dbg clean
+.PHONY: image run shot dbg test clean
 
 build:
 	@mkdir -p build
@@ -53,6 +55,9 @@ shot: image
 
 dbg: image
 	SYMS=$(ELF) ./harness/lldb-dump.sh
+
+test: image
+	IMG=$(ELF) ./harness/test.sh $(MARKERS)
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.

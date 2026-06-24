@@ -30,13 +30,15 @@ caught that QEMU's ELF `-kernel` enters with **x0 = 0, not the DTB** (HARDWARE.m
 **Observe:** `[M2] hello from C (EL1) x0=0x0` marker.
 **Files:** `boot/start.S`, `boot/kmain.c`, `boot/linker.ld`.
 
-### M3 — Exception vectors 🔜
-Install `VBAR_EL1`, write the 16-entry × `0x80`-byte vector table, deliberately
-trigger a synchronous exception and report ESR/ELR/FAR from the handler (via the
-M2 `kprintf` hex), then recover. Grounded: we enter with DAIF masked, so we
-control when interrupts open (M5).
-**Observe:** marker + lldb CPU-state (first milestone where the failure mode is
-"we faulted," so the lldb channel earns its keep).
+### M3 — Exception vectors ✅
+`boot/vectors.S` installs `VBAR_EL1` → a 16-entry × `0x80` table (2 KiB aligned);
+each slot saves a trap frame and calls `exc_handler` in `boot/exc.c`. Deliberately
+traps via `svc #0` (EC `0x15`, resume) and `brk #0` (EC `0x3c`, skip via `ELR+=4`).
+EC values **grounded** from Linux `esr.h` and **verified live** (the handler prints
+them); `SPSR=0x...3c5` independently confirms EL1h + DAIF masked. Names foreshadow
+AROS `intvecs.s`/`intr.c`/`__vectorhand_*`.
+**Observe:** `[M3] vectors ok` + the printed EC. **Files:** `boot/vectors.S`,
+`boot/exc.c`, `boot/kern.h`.
 
 ### M4 — MMU on ⬜
 Build initial page tables (identity-map RAM + the device range incl. PL011

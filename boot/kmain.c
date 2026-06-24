@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 #include <stdarg.h>
+#include "kern.h"
 
 // ---- PL011 UART (QEMU 'virt' wires UART0 here) ----
 #define UART0_BASE 0x09000000UL
@@ -109,4 +110,11 @@ static unsigned current_el(void) {
 void kmain(unsigned long x0_at_entry) {
     uart_init();
     kprintf("[M2] hello from C (EL%u) x0=%p\n", current_el(), (void *)x0_at_entry);
+
+    // M3: install exception vectors, then deliberately trap to prove they work.
+    vectors_init();
+    kprintf("[M3a] VBAR set, triggering traps\n");
+    __asm__ volatile("svc #0");     // -> sync exception, EC=0x15, resumes after
+    __asm__ volatile("brk #0");     // -> sync exception, EC=0x3c, handler skips it
+    kprintf("[M3] vectors ok\n");
 }
