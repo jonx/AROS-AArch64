@@ -136,4 +136,21 @@ void kmain(unsigned long x0_at_entry) {
     while (timer_ticks < 5)         // sleep until the timer IRQ has fired 5×
         __asm__ volatile("wfi");
     kprintf("[M5] timer IRQ ok, ticks=%lu\n", timer_ticks);
+
+    // M6: physical page allocator. Prove alloc, read/write, free, and LIFO reuse.
+    kprintf("[M6a] pmm init (heap above _end)\n");
+    pmm_init();
+    uint64_t total = pmm_free_count();
+    void *a = pmm_alloc(), *b = pmm_alloc(), *c = pmm_alloc();
+    *(volatile uint64_t *)a = 0xA5A5A5A5A5A5A5A5UL;
+    *(volatile uint64_t *)c = 0xC3C3C3C3C3C3C3C3UL;
+    int rw = (*(volatile uint64_t *)a == 0xA5A5A5A5A5A5A5A5UL)
+          && (*(volatile uint64_t *)c == 0xC3C3C3C3C3C3C3C3UL);
+    pmm_free(b);
+    void *d = pmm_alloc();           // LIFO -> should hand back b
+    kprintf("[M6] pmm ok: total=%lu pages a=%p b=%p c=%p rw=%d reuse=%d free=%lu\n",
+            total, a, b, c, rw, (d == b), pmm_free_count());
+
+    // M7: cooperative context switch between two tasks on separate stacks.
+    tasks_demo();
 }

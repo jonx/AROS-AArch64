@@ -28,4 +28,7 @@ SECTIONS
     . = ALIGN(16);
     . += 0x4000;
     _stack_top = .;
+
+    . = ALIGN(0x1000);
+    _end = .;               /* first page past the image; pmm heap starts here */
 }
