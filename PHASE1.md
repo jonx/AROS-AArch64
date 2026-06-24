@@ -64,7 +64,6 @@ handled by routing both vectors to the dispatcher + unmasking both.
 (RAM-top tied to the pinned `-m 512`; DTB memory node is the eventual proper
 source — x0 doesn't give it to us). Verified: `total≈130935 pages`, write/read-back
 ok, LIFO free+reuse ok. **Observe:** `[M6] pmm ok: ...`. **Files:** `boot/pmm.c`.
-**Observe:** marker: alloc/free N pages, checksum survives.
 
 ### M7 — Context switch ✅
 `boot/switch.S` (`ctx_switch`) saves/restores AAPCS callee-saved state + SP;
@@ -88,9 +87,19 @@ ramfb`; `make shot` grabs a QMP screendump. **Visually verified**: red/green/blu
 white quadrants render correctly (the pixel "way of seeing" is live).
 **Observe:** `make shot` → `run/screen.png`. **Files:** `boot/fb.c`.
 
+### M10 — Preemptive multitasking ✅ (beyond the original plan)
+The timer IRQ now *drives* scheduling. The exception path saves a **full** trap
+frame (x0–x30 + ELR + SPSR) and the handler returns the frame to resume — the same
+one, or another task's. `boot/sched.c` round-robins 3 contexts (main + A + B);
+tasks A and B run infinite loops with **no cooperative yield**, yet both make
+thousands of iterations of progress — proving the timer preempts them. Foreshadows
+AROS `core_Schedule`/`cpu_Switch` driven from the system timer.
+**Observe:** `[M10] preemptive multitasking ok: A ran=N B ran=M (no yields)`.
+**Files:** `boot/sched.c` (+ full-context `boot/vectors.S`/`boot/exc.c`).
+
 ---
 
-After M9 the bring-up primitives exist on QEMU. **Phase 2** swaps the platform
+After M9–M10 the bring-up primitives exist on QEMU. **Phase 2** swaps the platform
 layer from bare-metal-QEMU to hosted-on-macOS (a Mach-O bootstrap + the host-call
 ABI shim — the boundary that historically killed the Darwin-PPC port), letting
 macOS own every driver. That's when the MacBook Air becomes the payoff.

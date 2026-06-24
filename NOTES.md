@@ -114,8 +114,9 @@ clean file-per-concern layout that mirrors AROS's `arch/<cpu>-native`.
 **Known simplifications (honest debt, not bugs):**
 - Single core — secondaries parked, no PSCI `CPU_ON`/SMP.
 - Identity map only — no virtual address spaces, VA==PA, one L1 table.
-- *Cooperative* scheduler — the timer IRQ counts ticks but does not yet drive
-  preemption. Making it preemptive is the obvious next native step.
+- ~~Cooperative scheduler~~ → **M10 made it preemptive**: the timer IRQ saves a
+  full trap frame and round-robins tasks (no yields). Still single-core, no task
+  priorities/blocking, no per-task address space — a real scheduler is more.
 - `pmm` is a flat free-list; no contiguous alloc; RAM size hardcoded to `-m 512`
   (no DTB parse yet).
 - Framebuffer in `.bss`, no cache maintenance (fine under QEMU's no-cache model;
