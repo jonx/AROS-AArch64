@@ -89,11 +89,28 @@ where a SIGALRM caught them half-done. Fixed with a compiler barrier in
 Forbid/Permit (single thread ⇒ no CPU fence needed). **Files:** `hosted/kern.c`.
 **Run:** `make hosted-kern`.
 
+### H7 — The host display driver ✅
+The Phase-2 thesis ("macOS owns the drivers") applied to the display. AROS draws
+into a framebuffer it allocates from its **own** heap (the H5 allocator over
+`mmap`); the host presents it — here encoding to PNG via macOS ImageIO
+(CoreGraphics), the role a real display driver plays. Mirrors M9 (ramfb → QMP
+screendump): the agent observes pixels through a readable file, so the loop stays
+unattended. The scene (gradient sky, Workbench-style title bar, "AROS" in block
+letters, the M9 four-colour test row) is both pixel-asserted (the machine verdict)
+and human-visible. The ImageIO sequence was grounded against the live toolchain
+before use. **Observe:** `[H7] hosted display ok` + `docs/h7-hosted-display.png`.
+**Files:** `hosted/display.c`. **Run:** `make hosted-display`. *Deferred:* an
+on-screen Cocoa/Metal window — verifying a live window unattended needs macOS
+Screen-Recording permission (a manual step), so the loop uses render-to-PNG and
+the window is a thin human-facing addition for later.
+
+![AROS hosted display](docs/h7-hosted-display.png)
+
 ### Beyond — toward a real hosted AROS
-The two core `exec` subsystems are de-risked hosted and *composed* (H4+H5+H6),
-plus the host-call boundary (H3). Remaining: a host console/display (stdout now,
-then a Cocoa/Metal or X11 window — with an unattended way to *observe* it, e.g.
-render-to-PNG like the M9 screendump); then bootstrap the AROS module/library
-system (`MakeLibrary`/`SetFunction`, the BPTR/jumptable machinery) and stand a
-tiny `exec.library` up on this kernel. After that it's the graft itself: AROS's
-own crosstools for `aarch64-darwin` + its build system.
+The core `exec` subsystems are de-risked hosted and *composed* (H4+H5+H6), the
+host-call boundary is bridged (H3), and the host display is live (H7). The big
+remaining piece is the AROS module/library system — `MakeLibrary`/`SetFunction`
+and the negative-offset jump-table (LVO) machinery that makes everything in AROS
+a library — used to stand a tiny `exec.library` up on this kernel. After that
+it's the graft itself: AROS's own crosstools for `aarch64-darwin` + its build
+system, the point where spiking ends and integration begins.

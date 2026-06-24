@@ -172,6 +172,22 @@ one runnable file to match the harness's one-binary-per-marker design. Each
 subsystem is clearly sectioned; at the real graft these become separate AROS
 modules anyway.
 
+### H7: the host display, observed unattended (the M9 trick, hosted)
+Applied "macOS owns the drivers" to the display. AROS draws into a framebuffer
+`AllocMem`'d from its own heap; the host presents it by encoding to PNG via
+macOS ImageIO/CoreGraphics. The ImageIO call sequence was grounded against the
+live toolchain first (a scratch `pngprobe` that I compiled, ran, and *read back*
+as an image) before writing the driver — same ground-it-don't-dream rule. Crucial
+for the project's constraint: the agent observes the screen through a PNG file it
+can read, so "seeing pixels" stays unattended, exactly like M9's QMP screendump.
+The scene is pixel-asserted (four-colour squares exact, title bar present, a white
+'A'-crossbar pixel, bluish sky) so there's a real PASS/FAIL behind the image, not
+just "a file exists". An actual on-screen Cocoa window is deferred on purpose: a
+live window can only be verified unattended via `screencapture`, which needs macOS
+Screen-Recording (TCC) permission — a manual approval that violates the no-manual-
+steps rule. Render-to-PNG sidesteps that entirely; the window is a later
+human-facing nicety, not a loop dependency.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI

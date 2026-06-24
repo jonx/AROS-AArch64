@@ -40,16 +40,41 @@ A full native AArch64 bring-up on QEMU `virt`, each milestone gated by the loop:
 | M9 | framebuffer | ramfb via fw_cfg, screendump-verified |
 
 Every hardware fact is grounded against the real DTB / Linux headers / QEMU
-source (see [HARDWARE.md](HARDWARE.md)), and verified live in the loop. Next:
-see [ROADMAP.md](ROADMAP.md) (Phase 2 = hosted-on-macOS) and [NOTES.md](NOTES.md)
-(Phase 1 retrospective + what's deferred).
+source (see [HARDWARE.md](HARDWARE.md)), and verified live in the loop.
+
+## Status — Phase 2 (hosted on macOS) in progress 🔜
+
+AROS as a **native arm64 macOS process**, with macOS owning the drivers. Each
+step is a cheapest-first spike that de-risks one scary part before the full port,
+and every one is grounded (against the real AROS tree / Apple's ABI / the live
+toolchain) and verified in the same unattended loop (`make hosted-*`):
+
+| # | Spike | What it proves |
+|---|-------|----------------|
+| H1 | foundation | our bare-metal context switch runs at EL0 in a macOS process |
+| H2 | preemption | SIGALRM-as-timer + `mcontext` swap → hosted preemptive tasks |
+| H3 | host-call ABI | bridge AROS→Apple's arm64 **variadic-on-stack** ABI (the Darwin-PPC killer) |
+| H4 | scheduler | the real AROS `core_Schedule`/`cpu_Switch`/`TaskReady` priority model, hosted |
+| H5 | memory | AROS `MemHeader`/`MemChunk` first-fit + coalesce allocator over `mmap` |
+| H6 | composition | H4+H5 together: heap-allocated tasks, preemptive, `Forbid`-safe allocator |
+| H7 | display | AROS draws a framebuffer from its heap; macOS presents it (below) |
+
+![AROS hosted on macOS — H7](docs/h7-hosted-display.png)
+
+That window is drawn by AROS-side code into a framebuffer it allocates from its
+own heap, and presented by macOS's imaging — observed unattended via the PNG, the
+same way Phase 1 "sees" the QEMU framebuffer. See [PHASE2.md](PHASE2.md) for the
+spikes, [ROADMAP.md](ROADMAP.md) for the arc, and [NOTES.md](NOTES.md) for the
+decision log (incl. the real bugs grounding caught).
 
 ## What's here
 
 | Path | Purpose |
 |------|---------|
 | `boot/` | the kernel: `start.S`, `uart.c`, `exc.c`+`vectors.S`, `mmu.c`, `irq.c`, `pmm.c`, `task.c`+`switch.S`, `shell.c`, `fb.c`, `kmain.c` |
+| `hosted/` | Phase 2 spikes: `host.c`/`switch.S` (H1), `preempt.c` (H2), `abishim.*` (H3), `exec.c` (H4), `mem.c` (H5), `kern.c` (H6), `display.c` (H7) |
 | `harness/run.sh` | the loop: build → boot headless → observe/drive → uniform verdict |
+| `harness/run-hosted.sh` | the hosted loop: run the macOS binary → observe stdout/PNG → verdict |
 | `harness/qmp.py` | QMP client (framebuffer screendump) |
 | `harness/lldb-dump.sh` | scripted lldb CPU-state dump over QEMU's gdbstub |
 | `harness/test.sh` | regression: one boot, assert every milestone marker |
