@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test clean
+.PHONY: image run shot dbg test hosted hosted-run clean
 
 build:
 	@mkdir -p build
@@ -60,6 +60,14 @@ dbg: image
 
 test: image
 	IMG=$(ELF) INPUT='$(INPUT)' ./harness/test.sh $(MARKERS)
+
+# ---- Phase 2: hosted on macOS (a native arm64 process; macOS owns the drivers) ----
+HOST_BIN := build/host-aros
+hosted: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/host.c hosted/switch.S -o $(HOST_BIN)
+
+hosted-run: hosted
+	BIN=$(HOST_BIN) ./harness/run-hosted.sh '[H1]'
 
 # Re-ground the hardware map against the ACTUAL machine: dump + decode the DTB
 # this exact QEMU/flags combination emits. Source of truth for HARDWARE.md.
