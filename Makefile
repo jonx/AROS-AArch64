@@ -25,10 +25,10 @@ ASFLAGS := $(COMMON)
 CFLAGS  := $(COMMON) -O2 -mstrict-align -mgeneral-regs-only -fno-stack-protector
 
 ELF     := build/aros-aarch64.elf
-OBJS    := build/start.o build/kmain.o build/exc.o build/vectors.o
-MARKER  ?= [M3]
+OBJS    := build/start.o build/kmain.o build/exc.o build/vectors.o build/mmu.o
+MARKER  ?= [M4]
 # Cumulative markers a healthy boot prints, in order. Extend as milestones land.
-MARKERS ?= [M2] [M3a] [M3b] [M3c] [M3]
+MARKERS ?= [M2] [M3a] [M3b] [M3c] [M3] [M4a] [M4b] [M4]
 
 .PHONY: image run shot dbg test clean
 

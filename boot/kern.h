@@ -11,6 +11,9 @@ void kprintf(const char *fmt, ...);
 // Exception vectors (M3): install VBAR_EL1; defined in exc.c / vectors.S.
 void vectors_init(void);
 
+// MMU (M4): build an identity map and enable translation; defined in mmu.c.
+void mmu_init(void);
+
 // Read/write an AArch64 system register by name, e.g. SYSREG_READ("esr_el1").
 #define SYSREG_READ(reg) ({ uint64_t _v; __asm__ volatile("mrs %0, " reg : "=r"(_v)); _v; })
 #define SYSREG_WRITE(reg, val) \
