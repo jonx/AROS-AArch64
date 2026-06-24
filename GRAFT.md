@@ -96,6 +96,27 @@ first thing that will surface unknowns — and the first real build to attempt.
 | H8 | LVO table + `SetFunction`, no W^X | confirms `MakeLibrary`/`SetFunction` need no AArch64 work |
 | — | `struct ExceptionContext` is wrong upstream | fix `arch/aarch64-all/include/aros/cpucontext.h` |
 
+## Live grounding (run on this Apple-Silicon Mac)
+
+Not just read — *run*. `aros-upstream/configure --target=aarch64-darwin
+--disable-crosstools`, out-of-tree, on this M-series Mac:
+
+- **The target is accepted.** `checking for AROS style target... aarch64-darwin`,
+  parsed to `target_cpu=aarch64`, `target_os=darwin`, `toolchain family... gnu`.
+  So `aarch64-darwin` is a *recognised* target string; the rejection at
+  `configure:10904` is only reached after the whole build environment is satisfied
+  (it sits well past the prerequisite checks).
+- **The first walls are the GNU build-tool prerequisites, not AArch64.** configure
+  stops, one at a time, on: `gawk`, then `aclocal`/`automake`, then (after those)
+  `pngtopnm` (netpbm) — and it *probes for ancient versions* (`autoconf259`,
+  `autoconf253`, `automake-1.9`, i.e. autoconf 2.5x / automake 1.9, ~2004), more
+  evidence of the decade-old bit-rot. Installed `gawk`, `automake`, `autoconf` to
+  advance the probe; the next is netpbm, and more will follow.
+- **Conclusion, grounded live:** there is no AArch64 *research* blocker here — the
+  build system runs and accepts the target. The work is (1) standing up AROS's
+  full (old-leaning) build-tool environment, then (2) the AArch64 + modernisation
+  punch list above. That is integration + environment work, precisely the mountain.
+
 ## Honest assessment
 
 Every *hosted* unknown is answered; nothing above is a research risk anymore. But
