@@ -22,11 +22,14 @@ on a switched, host-allocated stack**.
 **Observe:** `[H1] hosted context switch ok: A=3 B=3`. **Files:** `hosted/host.c`,
 `hosted/switch.S`, `harness/run-hosted.sh`.
 
-### H2 — Hosted preemption 🔜
-A macOS timer signal (`SIGALRM`) drives task switching by swapping the saved
-register state in the signal's `ucontext`/`mcontext` — the hosted analog of the
-M5/M10 timer IRQ. This tests the next risk: can we preempt and switch contexts in
-an arm64 macOS process? If yes, the hosted scheduler is viable.
+### H2 — Hosted preemption ✅
+`hosted/preempt.c`: a periodic `SIGALRM` is the hosted "timer interrupt"; the
+handler swaps the saved registers in the signal's `mcontext` so it returns into a
+different task — the hosted analog of the M5/M10 timer IRQ. Workers never yield,
+yet both run ~9.4k times over ~200 ticks → **macOS-hosted preemption works**.
+Grounded: `-arch arm64` ⇒ `__DARWIN_OPAQUE_ARM_THREAD_STATE64==0`, so the plain
+`__ss.{__x,__fp,__lr,__sp,__pc}` fields are valid (no pointer-auth surgery).
+**Observe:** `[H2] ... A ran=N B ran=M (no yields)`. **Files:** `hosted/preempt.c`.
 
 ### H3 — The host-call ABI shim ⬜
 The make-or-break layer (it killed the old Darwin-PPC port). Real AROS code is
