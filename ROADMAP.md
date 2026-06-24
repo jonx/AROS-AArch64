@@ -66,7 +66,11 @@ contrib apps), not something that comes for free.
 Shake out ABI edge cases, get a real application ecosystem building, and submit to
 the `aros-development-team` tree per their CONTRIBUTING guidelines so it doesn't
 bit-rot as a private fork. The standalone deliverable even if Phase 2 stalls:
-**AROS's first AArch64 backend**, which the whole project currently lacks.
+**AROS's first *native* AArch64 backend**. (Grounded check of the upstream tree:
+`arch/aarch64-all` is header-only scaffolding for an unfinished *hosted-Linux*
+flavour — real atomics, an incomplete `ExceptionContext`, no kernel — so there's
+no native boot/vectors/MMU/context-switch to duplicate. We reuse and fix those
+headers at the graft. See NOTES.md.)
 
 ---
 

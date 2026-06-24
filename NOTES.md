@@ -51,6 +51,25 @@ Each milestone prints a unique serial marker (`[M1] …`, `[M2] …`). On an OS
 bring-up there's no stack trace — markers are the agent's ground-truth "did it
 get further than last time," and one-per-milestone lets it localize a regression.
 
+### Grounded: the state of AArch64 in AROS upstream (and what we mirror)
+Checked the AROS tree (`/Users/user/Source/aros-upstream`, shallow clone) before
+writing native code. Findings: `arch/aarch64-all` is **header-only scaffolding**
+(8 files / 452 lines) configured as a *hosted-Linux* flavour
+(`aros_flavour="emulation"`, `aarch64-linux-gnueabihf-`) that was never finished —
+real ARMv8 atomics (`atomic_v8.h`), an incomplete/buggy `struct ExceptionContext`
+(`r[29]; fp; sp; pc`, mislabels x30, no ELR/SPSR), and an empty `asm/mmu.h`. There
+is **no native AArch64 kernel** — no boot, vectors, MMU, context switch, timer, or
+`kernel.resource`. So "AROS's first *native* AArch64 backend" is accurate; we are
+not duplicating finished work. At the graft we *reuse and fix* the existing
+`aarch64-all` headers rather than inventing parallel ones.
+
+What we mirror from the real `arm-native` port (20k lines) so Phase-1 code grafts
+cleanly later: boot `start`→`kernel_cstart`; vectors `intvecs.s` + `intr.c`
+(`__vectorhand_*`) installed by `core_SetupIntr()`; trap frame `struct
+ExceptionContext`; MMU `mmu.c`/`core_SetupMMU`; switch `cpu_Switch`/`cpu_Dispatch`;
+naming `cpu_*` / `core_*` / `Krn*`; split `rom/kernel` ↔ `arch/<cpu>-all` ↔
+`arch/<cpu>-native`. We adopt the *names and shapes* now, not the whole machinery.
+
 ### Ground against the real machine, not priors
 Every hardware fact is verified against an authoritative source before code is
 written against it — the DTB the actual QEMU binary emits (`make dtb`), the QEMU
