@@ -81,6 +81,34 @@ protocol says x0 = DTB, but QEMU's ELF `-kernel` path actually enters with
 null. Assumptions get *proven in the loop* (kmain prints the value) rather than
 assumed. This is the project's standing rule: ground it, don't dream it.
 
+### H3 grounding: Apple's arm64 ABI divergences (the host-call boundary)
+The hosted port's scariest layer is the host-call shim — AROS code (built to
+generic AAPCS64 by its own crosstools) calling macOS libc, which follows Apple's
+arm64 ABI. I grounded the divergences not against Apple's HTML doc (JS-rendered,
+unfetchable as text) but against the **stronger** source: the exact instructions
+this machine's own `clang` emits (`-O0 -S` on snprintf/9-arg calls — see the H3
+commit). The four divergences from AAPCS64, all confirmed empirically:
+
+1. **Variadic args go on the STACK, one 8-byte slot each** — even when arg
+   registers are free. `snprintf("%d %d %d",11,22,33)` `str`s the three ints to
+   `[sp],[sp+8],[sp+16]` while `x5..x7` sit unused. *This is the printf killer:*
+   a hosted AROS cannot `bl _printf` with varargs in registers.
+2. **Variadic FP rides the same integer stack slots** — a `double` is `str d0,
+   [sp+8]`, no separate FP save area. So one integer marshalling path carries
+   `%d`, `%p` and `%f` alike (pass the double's bit pattern).
+3. **Non-variadic stack args pack to natural size** (an `int` spilled past x7 is
+   4 bytes at `[sp]`, the next at `[sp+4]`; `char`@0/`short`@2/`char`@4) — not
+   the 8-byte slots AAPCS64 uses. Bites only at >8 args; documented, not shimmed.
+4. **The caller sign/zero-extends sub-word args to 32 bits** (`ldursb` before the
+   call for a `signed char`).
+
+The shim (`hosted/abishim.S`) is the hand-written marshaller for #1/#2 — exactly
+the code AROS's host-printf bridge must contain. Proven in the loop (`make
+hosted-abi` → `[H3]`): the correct path prints `11 22 33` / `7 3.5 Z` / `<AROS>`;
+a deliberately-naive register-passing control prints `0 0 0`, so the divergence is
+shown to be real *and* bridged. This is the boundary that killed Darwin-PPC; it's
+now de-risked the same cheap way as H1/H2 — a spike, grounded, verified live.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
