@@ -149,6 +149,29 @@ Deliberately dropped from the spike: the managed-mem (`MemHeaderExt`) path and t
 (scheduler) this gives the two load-bearing `exec` subsystems, hosted and proven,
 before the graft.
 
+### H6: composition (H4+H5) caught a real bug isolated spikes couldn't
+Tied the scheduler (H4) and allocator (H5) into one process (`hosted/kern.c`):
+tasks are `AllocMem`'d from the heap and scheduled preemptively, with
+`Forbid()`/`Permit()` (AROS dispatch-disable) guarding the allocator. The first
+cut *failed* — the free list ended 512 bytes inconsistent (`free_sum < mh_Free`).
+Root cause, and the lesson: **`forbid_cnt` is `volatile` but `struct MemHeader`
+is not, and C only orders volatile-to-volatile accesses.** At `-O2` the compiler
+hoisted/sank the non-volatile free-list writes *outside* the Forbid window, where
+a SIGALRM caught the list half-updated. The fix is a compiler barrier
+(`asm volatile("" ::: "memory")`) in Forbid/Permit, tying the allocator's memory
+ops to the window; a single underlying thread means no CPU fence is needed for
+same-core signal delivery. This is precisely the class of bug a hosted port must
+get right, and it only appears under composition — neither the scheduler nor the
+allocator spike could surface it alone. Also fixed: shutdown must respect Forbid
+too (don't snapshot the system mid-critical-section). Verified stable across
+repeated runs (`make hosted-kern` → `[H6]`).
+
+**Size note (slow-ai):** `hosted/kern.c` is ~330 lines — over the 200-line flag,
+but it's a deliberate integration milestone (two subsystems + the glue) kept in
+one runnable file to match the harness's one-binary-per-marker design. Each
+subsystem is clearly sectioned; at the real graft these become separate AROS
+modules anyway.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
