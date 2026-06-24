@@ -59,6 +59,8 @@ toolchain) and verified in the same unattended loop (`make hosted-*`):
 | H5 | memory | AROS `MemHeader`/`MemChunk` first-fit + coalesce allocator over `mmap` |
 | H6 | composition | H4+H5 together: heap-allocated tasks, preemptive, `Forbid`-safe allocator |
 | H7 | display | AROS draws a framebuffer from its heap; macOS presents it (below) |
+| H8 | library/LVO | a tiny `exec.library` via the real jump-vector mechanism + `SetFunction` |
+| H9 | Wait/Signal | tasks that genuinely **block** and **wake** — the real exec primitive |
 
 ![AROS hosted on macOS — H7](docs/h7-hosted-display.png)
 
@@ -73,7 +75,7 @@ decision log (incl. the real bugs grounding caught).
 | Path | Purpose |
 |------|---------|
 | `boot/` | the kernel: `start.S`, `uart.c`, `exc.c`+`vectors.S`, `mmu.c`, `irq.c`, `pmm.c`, `task.c`+`switch.S`, `shell.c`, `fb.c`, `kmain.c` |
-| `hosted/` | Phase 2 spikes: `host.c`/`switch.S` (H1), `preempt.c` (H2), `abishim.*` (H3), `exec.c` (H4), `mem.c` (H5), `kern.c` (H6), `display.c` (H7) |
+| `hosted/` | Phase 2 spikes: `host.c`/`switch.S` (H1), `preempt.c` (H2), `abishim.*` (H3), `exec.c` (H4), `mem.c` (H5), `kern.c` (H6), `display.c` (H7), `library.c` (H8), `signal.c` (H9) |
 | `harness/run.sh` | the loop: build → boot headless → observe/drive → uniform verdict |
 | `harness/run-hosted.sh` | the hosted loop: run the macOS binary → observe stdout/PNG → verdict |
 | `harness/qmp.py` | QMP client (framebuffer screendump) |

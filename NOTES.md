@@ -206,6 +206,22 @@ offset `-LVO*LIB_VECTSIZE`, `Forbid()`, return old vector). This is the groundin
 discipline catching a *non*-problem before I built a workaround for it — as
 valuable as catching a real one.
 
+### H9: Wait()/Signal() — making the scheduler a real exec
+H4/H6 round-robin tasks but they never block; a real exec is built on tasks that
+*wait* (for a message, a device, a semaphore) and get *signalled*. H9 adds the
+genuine AROS state machine (`hosted/signal.c`), grounded against
+`rom/exec/{wait,signal}.c`: `Wait` sets `TS_WAIT` + `tc_SigWait`, enqueues on
+`TaskWait`, and yields; `Signal` ORs into `tc_SigRecvd` and, if the target waited
+on those bits, moves it back to `TaskReady`. The hosted realisation of "yield":
+once a task is `TS_WAIT`, `core_Switch` won't re-queue it (it only re-queues
+`TS_RUN`), so the next timer tick parks it off the ready list — that *is* blocking.
+A volatile re-read of `tc_State` in the wait loop defeats the compiler caching the
+state in a register (same family of bug as the H6 barrier). Verified with a
+lock-step producer↔consumer ping-pong (100=100, each blocking 100×) and a
+free-runner that does ~1000× the work — proving the pair really yield. No lost
+wakeups: `Wait` checks `tc_SigRecvd` before blocking, so a `Signal` that races
+ahead of the `Wait` is still seen.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
