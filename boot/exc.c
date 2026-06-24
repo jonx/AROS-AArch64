@@ -20,6 +20,13 @@ enum { K_SYNC = 0, K_IRQ, K_FIQ, K_SERROR, K_INVALID };
 
 void exc_handler(struct trapframe *tf, unsigned long kind)
 {
+    // Async interrupts have no useful syndrome — route straight to the dispatcher.
+    // (QEMU virt GICv2 may signal our group-0 timer as IRQ or FIQ; handle both.)
+    if (kind == K_IRQ || kind == K_FIQ) {
+        irq_dispatch();
+        return;
+    }
+
     uint64_t esr  = SYSREG_READ("esr_el1");
     uint64_t elr  = SYSREG_READ("elr_el1");
     uint64_t spsr = SYSREG_READ("spsr_el1");

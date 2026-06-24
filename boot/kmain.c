@@ -127,4 +127,13 @@ void kmain(unsigned long x0_at_entry) {
     __asm__ volatile("ldr x9, [%0]" :: "r"(0x80000000UL) : "x9", "memory");
     kprintf("[M4] MMU verified (SCTLR.M=%u, identity map + translation fault), alive\n",
             (unsigned)(SYSREG_READ("sctlr_el1") & 1));
+
+    // M5: first asynchronous event — GICv2 + EL1 physical timer at 100 Hz.
+    kprintf("[M5a] init GICv2 + EL1 phys timer (INTID 30)\n");
+    gic_init();
+    timer_init(100);
+    irqs_enable();
+    while (timer_ticks < 5)         // sleep until the timer IRQ has fired 5×
+        __asm__ volatile("wfi");
+    kprintf("[M5] timer IRQ ok, ticks=%lu\n", timer_ticks);
 }

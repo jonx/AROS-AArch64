@@ -51,12 +51,13 @@ before `mmu_init` runs MMU-off, so it stays load-bearing there.)
 **Observe:** `[M4]` prints only after the deliberate fault recovers.
 **Files:** `boot/mmu.c`.
 
-### M5 — Timer interrupt ⬜
-**Grounded (HARDWARE.md):** target is **GICv2** — GICD `0x0800_0000`, GICC
-`0x0801_0000`; pin `-machine virt,gic-version=2` so it can't shift under us. Use
-the **EL1 physical timer (CNTP), PPI 14 → INTID 30**. Enable, take a periodic IRQ,
-count ticks. First asynchronous event — the heartbeat a scheduler needs.
-**Observe:** marker showing tick count climbing.
+### M5 — Timer interrupt ✅
+`boot/irq.c` brings up **GICv2** (GICD `0x0800_0000` / GICC `0x0801_0000`, offsets
+grounded from Linux `arm-gic.h`) and the **EL1 physical timer** (CNTP, INTID 30) at
+100 Hz; the IRQ handler counts ticks, re-arms, EOIs. Harness now pins
+`virt,gic-version=2` so the controller can't drift. Group-0 IRQ-vs-FIQ ambiguity
+handled by routing both vectors to the dispatcher + unmasking both.
+**Observe:** `[M5] timer IRQ ok, ticks=5`. **Files:** `boot/irq.c`.
 
 ### M6 — Physical memory ⬜
 A simple page allocator. **Grounded:** x0 is NOT the DTB on our boot path, so to
