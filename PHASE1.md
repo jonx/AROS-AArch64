@@ -40,13 +40,16 @@ AROS `intvecs.s`/`intr.c`/`__vectorhand_*`.
 **Observe:** `[M3] vectors ok` + the printed EC. **Files:** `boot/vectors.S`,
 `boot/exc.c`, `boot/kern.h`.
 
-### M4 — MMU on ⬜
-Build initial page tables (identity-map RAM + the device range incl. PL011
-`0x0900_0000` and GIC `0x0800_0000`), set TCR/MAIR/TTBR, enable via SCTLR.M, keep
-printing. Once on, RAM can be Normal-cacheable and `-mstrict-align` is no longer
-load-bearing.
-**Observe:** marker that prints *after* `SCTLR.M=1`. **Risk:** the classic
-turn-on-the-MMU-and-vanish; bisect with the lldb channel + QEMU's `-d mmu`.
+### M4 — MMU on ✅
+`boot/mmu.c` builds one L1 table (4KB granule, T0SZ=25, 1GB identity blocks:
+device for the low GB incl. PL011/GIC, Normal-cacheable+exec for RAM), sets
+MAIR/TCR/TTBR0, enables SCTLR.M|C|I — and *survives*. Then proves translation is
+real: touching unmapped `0x8000_0000` faults with **EC=0x25, FAR=0x8000_0000,
+DFSC=translation-fault-L1** (grounded ESR decode), handler recovers. Descriptor
+bits grounded from Linux `pgtable-hwdef.h`. (`-mstrict-align` still set: early boot
+before `mmu_init` runs MMU-off, so it stays load-bearing there.)
+**Observe:** `[M4]` prints only after the deliberate fault recovers.
+**Files:** `boot/mmu.c`.
 
 ### M5 — Timer interrupt ⬜
 **Grounded (HARDWARE.md):** target is **GICv2** — GICD `0x0800_0000`, GICC

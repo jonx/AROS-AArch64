@@ -117,4 +117,14 @@ void kmain(unsigned long x0_at_entry) {
     __asm__ volatile("svc #0");     // -> sync exception, EC=0x15, resumes after
     __asm__ volatile("brk #0");     // -> sync exception, EC=0x3c, handler skips it
     kprintf("[M3] vectors ok\n");
+
+    // M4: enable the MMU. The print AFTER proves we identity-mapped correctly and
+    // didn't vanish (UART still reachable, code still executing).
+    kprintf("[M4a] enabling MMU (identity map)...\n");
+    mmu_init();
+    // Prove translation is real: 0x80000000 is left unmapped (L1 entry 2 = 0), so
+    // touching it must fault with FAR = that address. The handler skips the load.
+    __asm__ volatile("ldr x9, [%0]" :: "r"(0x80000000UL) : "x9", "memory");
+    kprintf("[M4] MMU verified (SCTLR.M=%u, identity map + translation fault), alive\n",
+            (unsigned)(SYSREG_READ("sctlr_el1") & 1));
 }

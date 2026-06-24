@@ -39,6 +39,11 @@ void exc_handler(struct trapframe *tf, unsigned long kind)
         kprintf("[M3c] brk EC=0x%x handled (skip)\n", ec);
         SYSREG_WRITE("elr_el1", elr + 4);
         break;
+    case 0x24:  // data abort, lower EL
+    case 0x25:  // data abort, current EL (M4 unmapped-access demo). FAR = bad VA.
+        kprintf("[M4b] data abort EC=0x%x FAR=0x%lx handled (skip)\n", ec, far);
+        SYSREG_WRITE("elr_el1", elr + 4);
+        break;
     default:
         kprintf("  UNEXPECTED exception — halting (watchdog will reap)\n");
         for (;;)
