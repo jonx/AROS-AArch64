@@ -158,12 +158,28 @@ zero errors, and main then re-reads the file *independently via the host* to con
 the bytes physically landed (128 bytes all matching the last pattern). **Files:**
 `hosted/device.c`. **Run:** `make hosted-device`.
 
+### H12 — exec.library boot: the full exec via the LVO hub ✅ (capstone)
+The 11 spikes each proved a mechanism; H12 makes them **one coherent miniature
+exec**, assembled the AROS way. `exec.library` is the hub: its services —
+`AllocMem`/`FreeMem` (H5), `Signal`/`Wait` (H9), `AddTask` + the priority
+scheduler (H4/H6) — live in the negative-offset LVO jump-vector table below
+`SysBase` (H8), and the tasks reach every one *through the library base*
+(`__AROS_GETVECADDR(SysBase, lvo)`), exactly as real AROS does. To prove dispatch
+genuinely routes through the table, `SetFunction` instruments `LVO_Signal` and its
+counter tracks the handshakes. **Observe:** `[H12] exec.library boot ok` — two
+tasks AddTask'd via LVO run a lock-step Signal/Wait ping-pong (A.ok=199,
+B.ok=200), allocating through `AllocMem` LVO, with ~398 instrumented Signal
+dispatches confirming the hub. **Files:** `hosted/execboot.c`. **Run:**
+`make hosted-execboot`.
+
 ### Beyond — toward a real hosted AROS
-The full host-facing surface is de-risked: the AROS-side machinery runs hosted
-(H1/H2), the host-call boundary is bridged (H3), the core `exec` subsystems are
-faithful and composed — scheduler, memory, blocking, IPC (H4/H5/H6/H9/H10) — the
-host display is live (H7), the library/module mechanism works hosted with no W^X
-wall (H8), and the full device-I/O path reaches a real host resource (H11). What's left is no longer a *hosted* unknown — it's **the graft**:
+The full host-facing surface is de-risked, and the pieces compose into a tiny exec
+that boots the AROS way: the AROS-side machinery runs hosted (H1/H2), the host-call
+boundary is bridged (H3), the core `exec` subsystems are faithful and composed —
+scheduler, memory, blocking, IPC (H4/H5/H6/H9/H10) — the host display is live (H7),
+the library/module mechanism works hosted with no W^X wall (H8), the full
+device-I/O path reaches a real host resource (H11), and **everything runs through
+the real `exec.library` LVO hub (H12)**. What's left is no longer a *hosted* unknown — it's **the graft**:
 AROS's own crosstools for `aarch64-darwin` + its `configure`/`mmake` build system,
 then bootstrapping the real `exec.library` from the AROS tree on these proven
 primitives. The grounded, code-level entry points are in [GRAFT.md](GRAFT.md), with

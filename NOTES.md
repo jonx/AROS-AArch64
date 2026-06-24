@@ -250,6 +250,20 @@ the last round's pattern). 62 round-trips, zero errors. The `(struct Message *)i
 == &io->io_Message` identity (io_Message first in IOStdReq) is what lets a replied
 message be cast straight back to its IORequest — faithful to AROS.
 
+### H12: exec.library boot — the capstone that ties it all together
+The 11 spikes each proved one mechanism; H12 (`hosted/execboot.c`) assembles them
+into a single coherent miniature exec, the AROS way: `exec.library` is the hub,
+and its services (`AllocMem`/`FreeMem`, `Signal`/`Wait`, `AddTask` + the scheduler)
+live in the negative-offset LVO jump-vector table below `SysBase`, reached by the
+tasks through the library base — exactly the `__AROS_GETVECADDR(SysBase, lvo)`
+dispatch that defines AROS. The faithful detail that matters: this is not "call the
+functions directly", it's "call them through the vector table", which I *prove* by
+`SetFunction`-instrumenting `LVO_Signal` and showing its counter (~398) tracks the
+ping-pong handshakes. Two tasks AddTask'd via LVO run a lock-step Signal/Wait
+exchange, allocating buffers via `AllocMem` LVO, scheduled preemptively. It is the
+"a tiny AROS exec actually runs on the MacBook, every call going through the real
+exec hub" demonstration — the satisfying close of the spike phase.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
