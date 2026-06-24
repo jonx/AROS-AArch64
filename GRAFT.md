@@ -117,6 +117,51 @@ Not just read — *run*. `aros-upstream/configure --target=aarch64-darwin
   full (old-leaning) build-tool environment, then (2) the AArch64 + modernisation
   punch list above. That is integration + environment work, precisely the mountain.
 
+## Live build progress — the trail blazed (run on this Apple-Silicon Mac)
+
+The graft is no longer theory: AROS now *configures and starts compiling* for a
+brand-new `darwin-aarch64` target. Work is on the `aarch64-darwin-graft` branch of
+`aros-upstream`; the exact recipe is `graft/build-darwin-aarch64.sh`. What works,
+in order:
+
+1. **Target string.** AROS parses `$target` as `<arch>-<cpu>` (configure:3655), so
+   the correct invocation is **`--target=darwin-aarch64`** (not `aarch64-darwin`,
+   which parses as arch=`aarch64` and is rejected). The `configure` patch (the
+   `*aarch64*` arm in the darwin flavour) is then reached and used.
+2. **Prerequisites.** The host-tool chain configure walks: `gawk`, `automake`/
+   `autoconf`, `bison`/`flex`, `netpbm` (`pngtopnm`/`ppmtoilbm`), `libpng`,
+   `gnu-sed` (`gsed`), Python `mako`, and an `objcopy` shim (`llvm-objcopy`; macOS
+   has none). All satisfiable via brew/pip.
+3. **`configure` SUCCEEDS** (exit 0) — *"Now run 'make' to build the project"* —
+   generating the full build system under `bin/darwin-aarch64/`.
+4. **A working cross-toolchain.** AROS's LLVM toolchain wants `clang`/`ld.lld`/
+   `llvm-*` under `<install>/bin`. A thin set of wrappers — native LLVM `clang`
+   retargeted `--target=aarch64-unknown-none-elf -fuse-ld=lld` (so it emits
+   **ELF**, not Mach-O, and links with lld since Apple's `ld` can't do ELF), the
+   rest symlinked — handed to `--with-aros-toolchain-install`, passes AROS's
+   target-compiler test.
+5. **All AROS host tools build** (`fd2inline`, `sfdc`, `collect-aros`, …).
+6. **Dropped the dead ACPICA gate.** `arch/all-native/acpica` made the global
+   `includes-copy` depend on downloading ACPICA (native-x86, irrelevant to hosted
+   aarch64, URL now 404s). The branch removes that dependency.
+7. **It COMPILES real AROS source for darwin-aarch64** — the build reaches and
+   compiles `compiler/alib/*.c` with the aarch64-ELF toolchain.
+
+### The current wall (the next real piece of work)
+The build stops in `compiler/alib` with `clang: error: unknown argument
+'-noposixc'`. `-noposixc` is an **AROS compiler-spec flag** (`config/specs.in`,
+`config/elf-specs.in`): it conditionally controls AROS include paths and lib
+linking. AROS's GCC understands it via `-specs=`; AROS's *LLVM* toolchain
+understands it because AROS ships a **patched clang**
+(`tools/crosstools/llvm/clang-*.src-aros.diff`). Stock Homebrew clang does not.
+
+So the next phase is the genuine toolchain construction: either (a) build AROS's
+patched LLVM crosstools (download `llvm-11.0.0.src` + the aros diff and build it —
+the "intended" path, a long LLVM-from-source build), or (b) replicate the AROS
+specs logic inside the clang wrapper (teach it the `-noposixc`/`-nostdc`/… flags
+and the include/lib injection they gate). Either is multi-session; both are now
+*scoped and grounded*, not unknown.
+
 ## Honest assessment
 
 Every *hosted* unknown is answered; nothing above is a research risk anymore. But
