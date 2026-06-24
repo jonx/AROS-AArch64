@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-library hosted-signal hosted-msgport hosted-device hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-test clean
 
 build:
 	@mkdir -p build
@@ -129,6 +129,13 @@ hosted-msgport: | build
 hosted-device: | build
 	clang -arch arm64 -O2 -Wall -Wextra hosted/device.c -o build/host-device
 	BIN=build/host-device ./harness/run-hosted.sh '[H11] hosted device ok'
+
+# H12 (capstone): exec.library boot — the full exec reached through the LVO hub.
+# Services (AllocMem/FreeMem/Signal/Wait/AddTask) live in the jump-vector table
+# below SysBase; tasks call them through the base, scheduled preemptively.
+hosted-execboot: | build
+	clang -arch arm64 -O2 -Wall -Wextra hosted/execboot.c -o build/host-execboot
+	BIN=build/host-execboot ./harness/run-hosted.sh '[H12] exec.library boot ok'
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:
