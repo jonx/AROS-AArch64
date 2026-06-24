@@ -6,10 +6,13 @@ idea plugs into the real AROS source tree, grounded against
 `/Users/user/Source/aros-upstream` (file paths + line numbers below). It turns "the
 mountain" from a gesture into a punch list.
 
-The honest headline: **the graft is integration, not spiking.** AROS already has a
-*darwin hosted* backend — but it targets i386/x86_64/ppc/arm only, it has no
-AArch64, and it is bit-rotted to ~2010-era Xcode. The work is to add AArch64 *and*
-modernise that backend for current macOS.
+The honest headline: **the graft is integration, not spiking** — and as of
+2026-06-24 it **boots**. AROS already had a *darwin hosted* backend, but it targeted
+i386/x86_64/ppc/arm only, had no AArch64, and was bit-rotted to ~2010-era Xcode. The
+work was to add AArch64 *and* modernise that backend for current macOS — which is now
+done far enough that hosted AROS loads, relocates, and runs on Apple Silicon (exec +
+kernel + hostlib up, trap handler + Guru alert rendering). See **"It boots"** below
+and `graft/WORKFLOW.md`.
 
 ## What AROS already has (grounded)
 
@@ -147,26 +150,43 @@ in order:
 7. **It COMPILES real AROS source for darwin-aarch64** — the build reaches and
    compiles `compiler/alib/*.c` with the aarch64-ELF toolchain.
 
-### The current wall (the next real piece of work)
-The build stops in `compiler/alib` with `clang: error: unknown argument
-'-noposixc'`. `-noposixc` is an **AROS compiler-spec flag** (`config/specs.in`,
-`config/elf-specs.in`): it conditionally controls AROS include paths and lib
-linking. AROS's GCC understands it via `-specs=`; AROS's *LLVM* toolchain
-understands it because AROS ships a **patched clang**
-(`tools/crosstools/llvm/clang-*.src-aros.diff`). Stock Homebrew clang does not.
+> **The `-noposixc` wall was passed long ago.** We built AROS's real patched LLVM
+> 20.1.0 crosstools (the diff understands `-noposixc` and `llvm::Triple::AROS`), and
+> the whole punch list above is done. See `graft/WORKFLOW.md` for the live map.
 
-So the next phase is the genuine toolchain construction: either (a) build AROS's
-patched LLVM crosstools (download `llvm-11.0.0.src` + the aros diff and build it —
-the "intended" path, a long LLVM-from-source build), or (b) replicate the AROS
-specs logic inside the clang wrapper (teach it the `-noposixc`/`-nostdc`/… flags
-and the include/lib injection they gate). Either is multi-session; both are now
-*scoped and grounded*, not unknown.
+## It boots (2026-06-24)
+
+**Hosted AROS now boots and runs on this Apple-Silicon Mac.** End to end:
+
+1. **`exec.library`** compiles + links (175KB aarch64 AROS ELF) — ~12 dispatch/
+   compile fixes plus a real bug (`__AROS_SET_FULLJMP` wrote an *ARM* opcode into an
+   aarch64 trampoline), and the AArch64 arch asm in `arch/aarch64-all/exec/`
+   (`stackswap.S`, `newstackswap.c`, `execstubs.s`, `genmodule.h` stubs).
+2. **`kernel.resource`** compiles + links (70KB) — `kernel_cpu.h` `__aarch64__`
+   routing to our `cpu_aarch64.h`, an `AROS_GET_SP` clang path, and the
+   host-signal→AROS-trap table `arch/all-unix/kernel/cpu_aarch64.c`.
+3. **`AROSBootstrap`** (native arm64 Mach-O host loader) maps 256MB and runs the
+   kickstart — after fixing the Apple-Silicon `mmap` (W^X: RW `MAP_PRIVATE`, no
+   `MAP_32BIT`), implementing the **AArch64 ELF relocations** in `bootstrap/
+   elfloader.c`, building the modules `-mcmodel=large` to avoid GOT relocs for weak
+   symbols, force-loading a **static C runtime** (`libkrnmem.a`) so the weak StdC
+   stubs don't deref a NULL `StdCBase`, and adding `hostlib.resource`.
+4. **AROS runs:** `exec.library` + `kernel.resource` + `hostlib.resource` initialise
+   with valid `SysBase`/`KernelBase`; a SIGSEGV is caught via our `cpu_aarch64.h`
+   signal glue and AROS prints its **AArch64 register dump** + native
+   **Guru-Meditation alert**. It then halts at a cold-start trap (a 3-module
+   kickstart has no `dos.library` to hand off to).
+
+Run it yourself: **`~/aros-darwin/run.sh`** (a self-contained signed bundle). The
+upstream-worthy friction along the way is logged in `graft/UPSTREAM-NOTES.md`
+(25 items).
 
 ## Honest assessment
 
-Every *hosted* unknown is answered; nothing above is a research risk anymore. But
-the graft is a large, iterative integration: extend + modernise the darwin hosted
-backend, add the AArch64 CPU glue, fix the unfinished `arch/aarch64-all`, get the
-crosstools to accept `aarch64-darwin`, then drive `configure`/`mmake` and fix what
-breaks — repeatedly, against a backend nobody has built in a decade. That is the
-next body of work, and it is grounded here rather than guessed.
+The hard, novel work — the toolchain, the AArch64 CPU/ABI glue, the W^X / relocation
+/ static-runtime hurdles unique to hosting AROS on Apple Silicon — is *done and
+demonstrated*: AROS executes. What remains is comparatively conventional AROS
+bring-up: get past the cold-start trap, add `dos.library` and the boot module set,
+and walk the boot sequence to a shell — plus turning the build-dir/by-hand workarounds
+(`libkrnmem.a` mmake rule, the `-mcmodel=large`/`-D__arm64__` flags' proper home in
+`configure`) into clean, upstreamable changes.

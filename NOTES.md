@@ -354,6 +354,43 @@ and bootstrap the real `exec.library` on these primitives. That's large-scale
 integration in the AROS tree, not a session-sized spike — and it's the next thing
 to ground rather than reimplement.
 
+## 2026-06-24 — Hosted AROS BOOTS on Apple Silicon
+
+The graft is no longer "the next thing to ground": **real AROS now loads, relocates
+and runs on this Mac.** `exec.library` (175KB) + `kernel.resource` (70KB) +
+`hostlib.resource` come up with valid `SysBase`/`KernelBase`; a SIGSEGV is caught via
+the `cpu_aarch64.h` host-signal→AROS-trap bridge and AROS prints its AArch64 register
+dump + native Guru alert. It halts at a cold-start trap (no `dos.library` in a
+3-module kickstart). Run it: `~/aros-darwin/run.sh`. Full map: `graft/WORKFLOW.md`;
+upstream friction (25 items): `graft/UPSTREAM-NOTES.md`.
+
+### Key decisions / trade-offs under the "make it boot" push
+
+- **`-mcmodel=large` for the kickstart modules, instead of a GOT in the loader.**
+  AArch64 clang routes *weak* symbols (`__aros_libreq_SysBase`) through the GOT even
+  with `-fno-pic`, and the simple bootstrap loader has none. Large model emits
+  absolute `movz/movk` (only `MOVW_UABS`/`ABS64` relocs). Trade-off: bigger modules
+  + a full recompile, for a much simpler, self-contained loader (no near-code GOT).
+- **Map the AROS RAM pool `RW`, not `RWX`** (and drop `MAP_32BIT`) on Apple Silicon.
+  W^X refuses a one-shot RWX anon `mmap` even with JIT entitlements; early boot runs
+  from the kickstart RO region anyway. Consciously deferred: executing code *loaded
+  into* the pool (LoadSeg) needs the W^X-aware path later.
+- **Force-load a hand-built static C runtime (`libkrnmem.a`).** The proper fix is for
+  the freestanding modules to link `stdc.static` so its *strong* `memset`/`strcmp`/…
+  win over the weak StdC stubs; archive semantics wouldn't pull them, so I carved the
+  mem/str/format dependency-closure into `libkrnmem.a` and `--whole-archive`'d it.
+  Trade-off: assembled by hand in the build dir — needs a real mmake rule.
+- **A deliberately minimal 3-module kickstart** to *get a boot* and see AROS's own
+  output, accepting the cold-start halt. The rest of the OS is the next body of work.
+
+### With more time, I would (now)
+
+- Give `libkrnmem.a` a real mmake rule (or make the kernel/exec/hostlib links pull
+  `stdc.static` strong-over-weak cleanly) and find the proper `configure` home for
+  `-mcmodel=large` / `-D__arm64__`, so a clean checkout reproduces the boot.
+- Implement `arch/aarch64-all/stdc/setjmp.s` (still a weak stub).
+- Walk the cold-start: add `dos.library` + the boot module set, chase the next traps.
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
