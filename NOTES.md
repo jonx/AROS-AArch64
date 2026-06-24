@@ -222,6 +222,19 @@ free-runner that does ~1000× the work — proving the pair really yield. No los
 wakeups: `Wait` checks `tc_SigRecvd` before blocking, so a `Signal` that races
 ahead of the `Wait` is still seen.
 
+### H10: message ports — the exec IPC layer (and device-I/O shape)
+Layered the real AROS port mechanism on H9's Wait/Signal (`hosted/msgport.c`),
+grounded against `rom/exec/{putmsg,getmsg,waitport}.c`. `PutMsg` = `AddTail` then
+`Signal(mp_SigTask, 1<<mp_SigBit)`; `WaitPort` blocks on the port's signal bit
+until the queue is non-empty; `GetMsg` = `RemHead`; `ReplyMsg` = `PutMsg` back to
+`mn_ReplyPort`. The point: this is the exact shape of AROS device I/O (send an
+IORequest to a port, block for the reply), so proving it hosted proves the I/O
+path a hosted AROS uses to reach host resources. Verified with a client↔server
+request/reply loop (server squares each request): ~124 round-trips, server
+processed exactly as many (no message loss), zero wrong replies, both tasks
+blocking on their ports under preemption. With H4/H5/H6/H8/H9 this rounds out the
+essential exec: scheduling, memory, libraries, signals, messages.
+
 ## Trade-offs made under time pressure
 
 - `start.S` parks secondary CPUs in a `wfe` spin rather than implementing PSCI
