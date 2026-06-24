@@ -80,7 +80,8 @@ decision log (incl. the real bugs grounding caught).
 | `harness/lldb-dump.sh` | scripted lldb CPU-state dump over QEMU's gdbstub |
 | `harness/test.sh` | regression: one boot, assert every milestone marker |
 | `Makefile` | agent entry points: `run`, `test`, `shot`, `dbg`, `dtb`, `clean` |
-| `ROADMAP.md` / `PHASE1.md` | the three-phase arc / Phase-1 milestones |
+| `ROADMAP.md` / `PHASE1.md` / `PHASE2.md` | the three-phase arc / Phase-1 milestones / Phase-2 spikes |
+| `GRAFT.md` | grounded map from the Phase-2 spikes into the real AROS tree |
 | `HARDWARE.md` / `NOTES.md` | grounded hardware map / architecture + decisions |
 
 ## License
