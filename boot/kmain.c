@@ -38,6 +38,12 @@ static void uart_putc(char c) {
     mmio_w32(UART0_BASE, UART_DR, (uint8_t)c);
 }
 
+#define UART_FR_RXFE (1u << 4)   // receive FIFO empty
+static int uart_getc(void) {
+    while (mmio_r32(UART0_BASE, UART_FR) & UART_FR_RXFE) { /* wait for input */ }
+    return (int)(mmio_r32(UART0_BASE, UART_DR) & 0xff);
+}
+
 // ---- tiny kprintf: %c %s %d %u %x %p, plus %l{d,u,x} ----
 static void put_uint(unsigned long v, unsigned base, int width, char pad) {
     char buf[32];
@@ -103,6 +109,35 @@ static unsigned current_el(void) {
     return (unsigned)((v >> 2) & 3);   // CurrentEL[3:2]
 }
 
+static int streq(const char *a, const char *b) {
+    while (*a && *a == *b) { a++; b++; }
+    return *a == *b;
+}
+
+// M8: a minimal line shell over the UART. The harness injects keystrokes into the
+// serial socket (the "drive" half of the channel); we echo and dispatch.
+static void shell_run(void) {
+    char line[64];
+    kprintf("[M8a] shell ready (commands: ping, ticks, quit)\n");
+    for (;;) {
+        kprintf("shell> ");
+        int n = 0, ch;
+        while ((ch = uart_getc()) != '\r' && ch != '\n') {
+            if (ch == 0x7f || ch == 0x08) {            // backspace
+                if (n) { n--; kprintf("\b \b"); }
+                continue;
+            }
+            if (n < (int)sizeof(line) - 1) { line[n++] = (char)ch; uart_putc((char)ch); }
+        }
+        uart_putc('\n');
+        line[n] = 0;
+        if (streq(line, "ping"))       kprintf("pong\n");
+        else if (streq(line, "ticks")) kprintf("ticks=%lu\n", timer_ticks);
+        else if (streq(line, "quit"))  { kprintf("[M8] shell ok (got quit)\n"); return; }
+        else if (n)                    kprintf("unknown: %s\n", line);
+    }
+}
+
 // Entry from start.S. x0_at_entry is whatever the boot path left in x0; under
 // QEMU's ELF -kernel it is 0 (NOT the DTB — see start.S / HARDWARE.md). Printed
 // so the grounded fact stays verified by the loop. Returning hands back to the
@@ -153,4 +188,7 @@ void kmain(unsigned long x0_at_entry) {
 
     // M7: cooperative context switch between two tasks on separate stacks.
     tasks_demo();
+
+    // M8: minimal shell — reads injected keystrokes from the UART, dispatches.
+    shell_run();
 }
