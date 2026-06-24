@@ -59,17 +59,19 @@ grounded from Linux `arm-gic.h`) and the **EL1 physical timer** (CNTP, INTID 30)
 handled by routing both vectors to the dispatcher + unmasking both.
 **Observe:** `[M5] timer IRQ ok, ticks=5`. **Files:** `boot/irq.c`.
 
-### M6 — Physical memory ⬜
-A simple page allocator. **Grounded:** x0 is NOT the DTB on our boot path, so to
-size RAM from a device tree we must pass `-dtb` at a known address (or hardcode
-the `0x4000_0000`+`-m` range to start). The substrate `exec`'s memory pools sit on.
+### M6 — Physical memory ✅
+`boot/pmm.c`: free-list page allocator, heap = `[page-aligned _end .. 0x6000_0000)`
+(RAM-top tied to the pinned `-m 512`; DTB memory node is the eventual proper
+source — x0 doesn't give it to us). Verified: `total≈130935 pages`, write/read-back
+ok, LIFO free+reuse ok. **Observe:** `[M6] pmm ok: ...`. **Files:** `boot/pmm.c`.
 **Observe:** marker: alloc/free N pages, checksum survives.
 
-### M7 — Context switch ⬜
-Save/restore the AArch64 register file + SP across two cooperatively-yielding
-tasks. This is the heart of the exec scheduler's CPU dependency — the single most
-reusable piece of the whole port.
-**Observe:** marker: tasks A and B alternating a fixed number of times.
+### M7 — Context switch ✅
+`boot/switch.S` (`ctx_switch`) saves/restores AAPCS callee-saved state + SP;
+`boot/task.c` runs two cooperative tasks on separate pmm stacks. Verified perfect
+A/B alternation with each task's loop counter preserved and distinct stack
+addresses. Foreshadows AROS `cpu_Switch`/`cpu_Dispatch`.
+**Observe:** `[M7] context switch ok`. **Files:** `boot/switch.S`, `boot/task.c`.
 
 ### M8 — Minimal shell ⬜
 Read characters back *from* the UART (via the harness's serial socket — the
