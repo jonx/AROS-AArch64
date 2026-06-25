@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-apps hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -760,6 +760,48 @@ hosted-jit68k-j5i: | build
 		-o build/host-jit68k-j5i
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5i \
 		./harness/run-hosted.sh '[J5i] PASS'
+
+# [J5j] THE CAPABILITY CAPSTONE: a SUBSTANTIAL, recognisable real 68k program through the
+# JIT. A fixed-point integer Mandelbrot ASCII renderer (apps68k/mandel.s -> bin/mandel.exe,
+# vasm -no-opt) — three nested loops (row x col x iterate, ~50k inner iterations), each with
+# signed muls.w fixed-point multiplies + asr shifts + the full add/sub/cmp + Bcc set +
+# (d16,a5) displacement-EA memory loads/stores, plus a PutChar library call per cell + a
+# newline per row through the [J3] negative-offset LVO bridge. Runs through the REAL Emu68
+# per-opcode decoders + OUR re-hosted PC-driven dispatcher; its PutChar OUTPUT STREAM, final
+# registers, and full sandbox memory are asserted BYTE-EXACT vs the independent from-scratch
+# interpreter (j5d_interp.c, OURS, no Emu68) — AND the fractal is printed so it's visible.
+# The capstone surfaced + closed a real oracle coverage gap: the immediate-source ALU forms
+# add.l/sub.l/cmp.l #imm,Dn (LINED/LINEB 0xD0BC/0x90BC/0xB0BC, which vasm emits under -no-opt)
+# were translated correctly by the JIT (the REAL EMIT_lineD/lineB decoders handle the
+# immediate EA) but were missing from the oracle; j5d_interp.c now models them and the
+# byte-exact assert verifies the real decoder against the extension. Negative control: corrupt
+# the escape compare's destination register so the streams diverge (the assert bites). NO new
+# Emu68 file is vendored (the decoders are the already-vendored verbatim set); the change is
+# entirely in OUR files (the oracle + the program + the test). Watchdog 20s -> FAIL.
+hosted-jit68k-j5j: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5j_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5j
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5j \
+		./harness/run-hosted.sh '[J5j] PASS'
 
 # apps68k: run REAL 68k Amiga programs (vasm-assembled hunk executables) through the
 # JIT. The toolchain (tools/build-vasm.sh builds vasm from source) produces the
