@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -471,6 +471,162 @@ hosted-jit68k-j5b: | build
 		hosted/jit68k/j5b_build.c hosted/jit68k/j5b_interp.c \
 		hosted/jit68k/j5b_test.c -o build/host-jit68k-j5b
 	BIN=build/host-jit68k-j5b ./harness/run-hosted.sh '[J5b] PASS'
+
+# J5c: RE-HOST Emu68's REAL per-opcode decoders + register allocator (NOT hand-rolled),
+# to prove broad opcode coverage is reachable by ADOPTING Emu68's decode logic. The
+# verbatim, MPL-quarantined emu68/M68k_LINE{8,9,B,C,D}.c + M68k_MOVE.c + M68k_MULDIV.c +
+# M68k_EA.c are DRIVEN (via the line dispatch) to translate a richer block than the
+# hand-rolled [J2]..[J5b] path can reach:
+#   moveq #-5,d2 ; add.l d2,d0 ; sub.l d3,d0 ; and.l d4,d0 ; or.l d5,d0 ; eor.l d6,d1 ;
+#   muls.w d7,d1 ; cmp.l d1,d0 ; and.l d2,d2 ; rts   (8 opcodes, 6 real LINE decoders).
+# This required PROVIDING hosted replacements for exactly the three [J5a] couplings:
+#   HOOK 1 sandbox/EA       — surface present; the richer block is register-direct (the
+#                             memory-EA modes stay blocked by EA's no-base + BE-CPU emit).
+#   HOOK 2 cache_read_16    — j5c_shims.c: big-endian fetch straight from the host stream,
+#                             splicing back the high 32 bits the uint32_t param truncates
+#                             (a DEEPER fetch coupling: Emu68's fetch addr is 32-bit).
+#   HOOK 3 RA SR/CTX        — j5c_ra.c (OURS): memory-backed CCR (ldr/str from the state
+#                             struct), NOT mrs/msr TPIDR_EL0; D0..D7/A0..A7 in the Emu68 map.
+# A FOURTH portability coupling: Emu68's decoders use GNU __attribute__((alias)) function
+# aliases, which clang/Mach-O REJECTS — emu68_darwinize.pl (OURS) rewrites the alias chains
+# into plain-C tail-call forwarders in build-dir copies, KEEPING the quarantine byte-verbatim.
+#   * Value-asserts (PASS iff ALL): JITed D0..D7/A0..A7 == an INDEPENDENT from-scratch
+#     interpreter (j5c_interp.c, OURS, no Emu68), byte-exact; moveq #-5 REAL sign-extend
+#     (d2==0xFFFFFFFB); the final CCR Z/N == the reference's (non-trivial: N set).
+#   * Negative control (must bite): corrupt the decoded opcode stream -> the REAL decoder
+#     emits a different (valid) instruction -> JITed value diverges from the reference.
+#     Watchdog 10s -> FAIL.
+# VERDICT (printed): re-hosting Emu68's REAL decoder + RA WORKS for register/ALU/control
+# opcodes; broad coverage of that class = vendor more M68k_LINE*.c + extend the oracle.
+# The memory-EA modes remain blocked (edit M68k_EA.c — the [J5a] surgery).
+# The darwinize step regenerates build/emu68-darwin/*.c from the quarantine on each build.
+hosted-jit68k-j5c: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_MOVE M68k_MULDIV M68k_EA; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Wno-unused-function \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5c_build.c hosted/jit68k/j5c_interp.c hosted/jit68k/j5c_test.c \
+		build/emu68-darwin/M68k_LINE8.c build/emu68-darwin/M68k_LINE9.c \
+		build/emu68-darwin/M68k_LINEB.c build/emu68-darwin/M68k_LINEC.c \
+		build/emu68-darwin/M68k_LINED.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		-o build/host-jit68k-j5c
+	BIN=build/host-jit68k-j5c ./harness/run-hosted.sh '[J5c] PASS'
+
+# [J5d] BROADEN the [J5c] re-hosting so the WHOLE apps68k corpus runs through the JIT.
+# Where [J5c] drove the REAL Emu68 decoders for ONE straight-line register block, [J5d]
+# is a little engine: a per-basic-block translator driving the REAL decoders for every
+# data/ALU/move/memory opcode + OUR re-hosted dispatcher ("MainLoop") owning inter-block
+# control flow, the (An)/(An)+ sandbox-memory EA, and the jsr-through-vector -> [J3]
+# library bridge. It runs all four corpus programs (mul=42, fact=120, arraysum=150,
+# libcall=0 + the AllocMem/PutChar/FreeMem stub log) byte-exact vs an INDEPENDENT
+# from-scratch interpreter (j5d_interp.c, OURS, no Emu68).
+#   * Vendors M68k_LINE5.c (addq/subq) + M68k_CC.c (EMIT_TestCondition, link-only)
+#     verbatim into the quarantine (Exhibit-B re-grep clean; NOTICE updated).
+#   * The (An) EA edit is the disclosed [J5a] fix applied to the BUILD-DIR copy of
+#     M68k_EA.c by emu68_darwinize.pl: each (An)-class load/store site is rewritten to
+#     call OUR j5d_ea_mem emitter (sandbox-base add + REV byteswap + post/pre index).
+#     The QUARANTINE M68k_EA.c stays BYTE-VERBATIM (diff vs upstream empty).
+#   * Reuses the [J5c] HOOK 2 fetch + HOOK 3 memory-backed RA (j5c_shims.c, j5c_ra.c)
+#     and the REAL [J3] marshaller (j3_marshal.c) + vector math (j3_vector.c).
+#   * Negative control (must bite): corrupt mul's add dest reg -> the REAL decoder emits
+#     a different valid insn -> d0 diverges from 42. Watchdog 15s -> FAIL.
+hosted-jit68k-j5d: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5d_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_MOVE.c build/emu68-darwin/M68k_MULDIV.c \
+		build/emu68-darwin/M68k_EA.c build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5d
+	BIN=build/host-jit68k-j5d ./harness/run-hosted.sh '[J5d] PASS'
+
+# [J5e] THE OPTIMIZE DELIVERABLE: a block-scoped register allocator. The REAL Emu68
+# decoders already keep the 68k Dn/An in fixed host regs across a block (no per-op spill);
+# what [J5d] did naively was bracket EVERY block with a fixed frame loading all 16 Dn/An +
+# storing all 16 back unconditionally (32 state ldr/str/block). [J5e]'s RA (j5c_ra.c) tracks
+# which regs are READ before written (live-in) and WRITTEN (dirty) as the decoders run, and
+# the engine (j5d_engine.c) loads ONLY live-in regs in the prologue + stores back ONLY dirty
+# regs in the epilogue. SPILL POLICY: every block exit (RTS / branch / the jsr->[J3] library
+# bridge) stores dirty regs to the state struct BEFORE the boundary, so the memory state is
+# consistent for the bridge marshal / next block. The marker `[J5e] PASS` is gated on BOTH
+# the corpus staying byte-exact vs the independent interpreter AND a measured reduction in
+# emitted instructions + state-memory traffic. Same sources/decoders as [J5d]; only the
+# test driver differs (it reports the before/after numbers). Watchdog 15s -> FAIL.
+hosted-jit68k-j5e: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5e_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_MOVE.c build/emu68-darwin/M68k_MULDIV.c \
+		build/emu68-darwin/M68k_EA.c build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5e
+	BIN=build/host-jit68k-j5e ./harness/run-hosted.sh '[J5e] PASS'
+
+# apps68k: run REAL 68k Amiga programs (vasm-assembled hunk executables) through the
+# JIT. The toolchain (tools/build-vasm.sh builds vasm from source) produces the
+# big-endian AmigaOS hunk binaries in apps68k/bin/ from the *.s sources; the runner
+# loads each into the [J4] sandbox (with real HUNK_RELOC32 relocation) and runs ALL
+# FOUR THROUGH THE [J5d] JIT ENGINE — Emu68's REAL per-opcode decoders for every ALU/
+# move/memory opcode + OUR re-hosted dispatcher for inter-block control flow + the (An)
+# sandbox-memory EA edit + the jsr-through-vector -> [J3] library bridge:
+#   * mul.exe       -> d0 = 42   (moveq/add.l/subq.l/bne.s/rts)
+#   * fact.exe      -> d0 = 120  (+ reg-to-reg move.l + cmp.l + nested loops)
+#   * arraysum.exe  -> d0 = 150  (+ relocated lea DATA, add.l (a0)+ via the REAL EA decoder)
+#   * libcall.exe   -> d0 = 0    (+ AllocMem/PutChar/FreeMem via jsr -off(a6) -> [J3] bridge)
+# Each register file + sandbox memory is asserted byte-exact vs an INDEPENDENT from-
+# scratch interpreter (j5d_interp.c, OURS, no Emu68); NO faked passes.
+# Prereqs: the *.exe binaries are committed; to regenerate, run
+#   apps68k/tools/build-vasm.sh && apps68k/tools/assemble.sh
+# The vendored Emu68 decoders are darwinized (alias-forwarders + the (An) EA edit) into
+# build/emu68-darwin/ first; the quarantine stays byte-verbatim. No Emu68 source is
+# copied into our glue.
+hosted-jit68k-apps: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k/emu68 -Ihosted/jit68k \
+		-Ihosted/jit68k/apps68k -Wno-unused-function \
+		hosted/jit68k/apps68k/runner.c hosted/jit68k/apps68k/stublib.c \
+		hosted/jit68k/j4_loader.c \
+		hosted/jit68k/j5c_shims.c hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/jit_region.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_MOVE.c build/emu68-darwin/M68k_MULDIV.c \
+		build/emu68-darwin/M68k_EA.c build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-apps
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-apps \
+		./harness/run-hosted.sh '[apps68k] PASS'
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:
