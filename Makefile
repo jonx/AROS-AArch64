@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-apps hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -897,6 +897,57 @@ hosted-jit68k-j5k: | build
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5k \
 		./harness/run-hosted.sh '[J5k] PASS'
 
+# [J5l] movem (move-multiple-registers) — the opcode every compiler-generated 68k function uses
+# in its prologue/epilogue (movem.l d2-d7/a2-a6,-(sp) save + movem.l (sp)+,d2-d7/a2-a6 restore),
+# so it is required to run real compiled Amiga code. This DRIVES Emu68's REAL EMIT_MOVEM decoder
+# (the verbatim, quarantined M68k_LINE4.c) — the predecrement REVERSED register-mask order, the
+# post/pre-increment An update, the control / (d16,An) / .w forms — and routes its memory touches
+# through the sandbox (j5d_ea_helpers.c j5d_movem_* helpers: host = base_adjust + An UXTW + a
+# per-register big-endian REV, with pair decomposition + the pre/post-index An update preserved).
+# EMIT_MOVEM does NOT use M68k_EA.c's ldr_offset(reg_An,...) sites the --ea-sandbox transform
+# rewrites — it emits its own stp/str/strh/ldr/ldp/ldrsh straight off the EA-base register — so a
+# SECOND darwinize pass (--movem-sandbox, on M68k_LINE4.c) rewrites exactly those movem memory
+# sites to the helpers. The QUARANTINE M68k_LINE4.c stays BYTE-VERBATIM (diff vs upstream empty);
+# only the build copy is patched. No new emu68/ file is vendored (LINE4 was already vendored at
+# [J5g]); the Exhibit-B grep is unchanged/clean.
+#   * j5l.exe: a compiler-style non-leaf subroutine `work` saves d2-d7/a2-a6 with a predecrement
+#     movem, CLOBBERS them all, restores them with a postincrement movem, and returns; the caller
+#     asserts every one SURVIVED (d0 == 0x7FF). Plus the control/(d16,An)/.w forms on a fixed frame.
+#   * Asserted BYTE-EXACT (full register file + the WHOLE sandbox memory, incl. the saved stack
+#     frame + the control frame) vs the independent from-scratch interpreter (j5d_interp.c, OURS,
+#     extended to model movem: both mask orders, the An update, .w sign-extend on load).
+#   * NEGATIVE CONTROL (must bite): zero the epilogue restore mask in the JIT copy -> the clobbered
+#     regs leak, d0 != 0x7FF, JIT diverges from the oracle.
+#   * REGRESSION: the whole corpus (mul/fact/arraysum/libcall/sumsq/bubsort/mp64/mandel) re-run
+#     through the SAME (movem-edited) engine, each byte-exact. Watchdog 30s -> FAIL.
+# The change is below the frozen seam (jit_region API, struct M68KState layout, the [J3] LVO
+# contract, the [J5i] exception model are all UNCHANGED): it is decoder/EA coverage only.
+hosted-jit68k-j5l: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5l_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5l
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5l \
+		./harness/run-hosted.sh '[J5l] PASS'
+
 # apps68k: run REAL 68k Amiga programs (vasm-assembled hunk executables) through the
 # JIT. The toolchain (tools/build-vasm.sh builds vasm from source) produces the
 # big-endian AmigaOS hunk binaries in apps68k/bin/ from the *.s sources; the runner
@@ -917,9 +968,10 @@ hosted-jit68k-j5k: | build
 # copied into our glue.
 hosted-jit68k-apps: | build
 	mkdir -p build/emu68-darwin
-	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
 		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
 	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k/emu68 -Ihosted/jit68k \
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
