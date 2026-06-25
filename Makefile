@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-apps hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -682,6 +682,84 @@ hosted-jit68k-j5g: | build
 		-o build/host-jit68k-j5g
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5g \
 		./harness/run-hosted.sh '[J5g] PASS'
+
+# [J5h] CLOSE the X-bit multi-precision chain coverage gap [J5g] deferred. A self-contained
+# 64-bit-arithmetic 68k program (apps68k/mp64.s -> bin/mp64.exe, vasm -no-opt real hunk):
+#   * 64-bit ADD  via add.l (low) + addx.l (high): the carry out of the low longword,
+#     recorded in the 68k X bit, is consumed by the high longword's addx.l.
+#   * 64-bit NEGATE via neg.l (low) + negx.l (high): X carries the borrow lo->hi.
+#   -> d0 = 0x000004FC.  Run through the REAL Emu68 LINED (add/addx) + LINE4 (neg/negx)
+# decoders + our dispatcher, asserted BYTE-EXACT — the full register file AND the CCR byte
+# INCLUDING the X bit AND the sandbox memory — vs the independent from-scratch interpreter
+# (j5d_interp.c, OURS, no Emu68; extended with addx/subx/negx + the multi-precision Z rule).
+# Resolves the [J5g] deferral: the register-direct addx/subx/negx/neg/not X-bit handling was
+# empirically ground against the PRM (4th ed., ADDX/SUBX/NEGX flag rows) and found byte-exact
+# CORRECT real 68k in Emu68 — the deferral was conservative (the ops were un-oracled, not
+# proven wrong). NO new Emu68 file is vendored: addx/subx/negx live in the already-driven,
+# already-vendored LINE4/LINE9/LINED decoders. Negative control: flip addx.l back to a plain
+# add.l (drop the X carry) -> the high longword is off by one -> the byte-exact assert bites.
+# Watchdog 15s -> FAIL.
+hosted-jit68k-j5h: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5h_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5h
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5h \
+		./harness/run-hosted.sh '[J5h] PASS'
+
+# [J5i] the 68k EXCEPTION / SR model. A real vasm-assembled hunk program (apps68k/j5i.s ->
+# bin/j5i.exe, -kick1hunks for the jmp-finish RELOC32) installs 68k exception handlers in a
+# sandbox vector table (the VBR stand-in @ 0x00240000) and raises three exceptions from three
+# REAL causes — trap #1 (-> vector 33), divu.w #0 (-> vector 5), ILLEGAL (-> vector 4) — plus
+# hand-built micro-tests for the SR+PC frame/rte resume and a bus error (out-of-sandbox jmp ->
+# vector 2, the graft/cpu_aarch64.h SIGSEGV seam modeled in-band). OUR C dispatcher owns the
+# exception model (Emu68's bare-metal EMIT_Exception/VBR path is a no-op stub in the re-hosted
+# runtime); the body opcodes still run through the REAL Emu68 decoders. Each exception is
+# asserted byte-exact (registers + CCR/SR + sandbox memory + the per-exception frame log) vs
+# the independent from-scratch oracle (j5d_interp.c, OURS). Negative control: NOP the vector
+# store so no handler is installed -> the value diverges (clean fault, no host crash). The
+# whole existing corpus stays byte-exact ([J1]-[J5h] + apps68k green). Watchdog 15s -> FAIL.
+hosted-jit68k-j5i: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5i_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5i
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5i \
+		./harness/run-hosted.sh '[J5i] PASS'
 
 # apps68k: run REAL 68k Amiga programs (vasm-assembled hunk executables) through the
 # JIT. The toolchain (tools/build-vasm.sh builds vasm from source) produces the
