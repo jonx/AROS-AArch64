@@ -132,7 +132,7 @@ cocoametal-dylib: | build
 		-install_name @rpath/cocoametal.dylib \
 		-exported_symbols_list hosted/cocoametal/cocoametal.exports \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_settings.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
 		-o $(COCOAMETAL_DYLIB) \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit
