@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-apps hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1031,6 +1031,60 @@ hosted-jit68k-j5m: | build
 		-o build/host-jit68k-j5m
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5m \
 		./harness/run-hosted.sh '[J5m] PASS'
+
+# [J5n] THE DIAGNOSTICS SUBSYSTEM: faults are never silent. ANY 68k-JIT fault produces a
+# single, self-contained, shareable crash BUNDLE (a tar.gz) with everything a developer needs
+# to reproduce + diagnose: a friendly README.txt, a precise MANIFEST.txt, a two-level REPORT.txt
+# (the coordinate + the faulting 68k instruction + 68k regs D0-D7/A0-A7/PC/SR + host AArch64 regs
+# x0-x30/sp/pc + the 68k call stack AND the native host backtrace + a flight-recorder ring), a
+# reloadable core.snapshot (M68KState + the full sandbox image), program.exe + program.sha256,
+# REPRODUCE.txt (the run-to #N replay command + git commit + build config), and diverge.txt when
+# the differential mode caught it. A LOUD banner prints the bundle's absolute path. Plus:
+#   * the DIFFERENTIAL (lockstep-vs-oracle) mode (JIT68K_DIFF=1) that traps at the first
+#     instruction where the JIT diverges from the independent interpreter -> a runtime
+#     mistranslation locator;
+#   * deterministic REPLAY-TO-N (JIT68K_RUNTO=N): re-run the same program, break at exactly the
+#     global 68k instruction number #N the crash recorded;
+#   * the host-signal safety net (SIGSEGV/SIGBUS/SIGILL/SIGFPE on a sigaltstack) so a genuine
+#     out-of-sandbox HOST access is caught + bundled, never a silent crash;
+#   * HUNK_SYMBOL parsing (the loader skips it) into a PC->symbol map so the report names the
+#     faulting function (apps68k/diagfault.exe is assembled WITH symbols for this).
+# The j5n_test driver triggers each fault kind (div0/illegal/out-of-sandbox), asserts a complete
+# bundle is written with the banner path + the report contents, drives the differential trap +
+# replay-to-N + the host-signal net + a snapshot reload, then cleans up its bundles. Watchdog 30s.
+# The whole subsystem is INTERNAL to the engine, below the frozen seam: it is wired via a
+# side-channel (j5d_set_diag, mirroring j5d_set_exc_log) and reads struct M68KState read-only;
+# struct layout, the jit_region API, the [J3] LVO contract, and the [J5i] exception model are all
+# UNCHANGED. The diagnostics are off the hot path (chaining stays on for the corpus; diag==NULL).
+# diagfault.exe/diagill.exe/diagbus.exe are committed; to regenerate:
+#   apps68k/tools/build-vasm.sh && apps68k/tools/assemble.sh   (assemble.sh builds the diag* too)
+hosted-jit68k-j5n: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		-DJ5N_GIT_COMMIT="\"$$(git rev-parse HEAD 2>/dev/null || echo unknown)\"" \
+		-DJ5N_BUILD_CONFIG="\"clang -arch arm64 -O2 (hosted darwin-aarch64); emu68 darwinized\"" \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5n_diag.c hosted/jit68k/j5n_symbols.c \
+		hosted/jit68k/j5n_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5n
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5n TIMEOUT=40 \
+		./harness/run-hosted.sh '[J5n] PASS'
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:
