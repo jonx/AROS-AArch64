@@ -391,6 +391,44 @@ upstream friction (25 items): `graft/UPSTREAM-NOTES.md`.
 - Implement `arch/aarch64-all/stdc/setjmp.s` (still a weak stub).
 - Walk the cold-start: add `dos.library` + the boot module set, chase the next traps.
 
+## 2026-06-25 — [J5b] control flow in the 68k JIT (a real loop, real condition codes)
+
+Scoped increment of the `[J5]` decoder mountain. Translated a self-contained 68k loop
+`moveq #0,d0 ; moveq #5,d1 ; L: add.l d1,d0 ; subq.l #1,d1 ; bne.s L ; rts` (→ d0=15,
+5 iterations) in ONE `jit_region` with an **internal backward branch**, real condition
+codes, verified byte-exact against an independent from-scratch interpreter.
+
+### Key decisions / trade-offs
+
+- **The branch reads real NZCV straight from the `subs`.** `subq.l #1,d1` is emitted as
+  `subs w_d1,w_d1,#1` (the flag-setting subtract, `A64.h:320`); the conditional
+  `bne.s` is an AArch64 `b.ne` (`A64_CC_NE`, Z=0) that consumes those flags directly —
+  the AArch64 NZCV *is* the live 68k branch condition. No CCR=0 shortcut.
+- **68k CCR recomputed with NON-flag-setting ops to preserve `subs`→`b.ne` adjacency.**
+  Right after the `subs`, before the branch, the block derives the 68k CCR bits
+  (N from result bit31, Z from result==0, C/X from the subtract borrow rule, V from
+  signed overflow) using `cset`/`orr`/`str` etc. — none of which touch NZCV — so the
+  branch still sees the `subs` flags. The asserted `state->ccr` is therefore the real,
+  full N/Z/V/C/X, matching the interpreter's subtract flag rule. (68k subtract C = NOT
+  AArch64 C, since ARM sets C on no-borrow; handled explicitly.)
+- **Single region, internal backward branch.** The whole loop is emitted once; the
+  loop-top is a label (a word index) inside the emitted code and the `b.ne` offset is
+  `loop_top_idx − bne_idx` (negative). `b_cc`/`b` take signed word offsets and
+  `ASSERT_OFFSET` is a no-op at `-O2`, so two's-complement backward branches encode
+  cleanly. No cross-region chaining (deferred to `[J5c]`).
+- **Watchdog turns an infinite loop into FAIL.** 10s SIGALRM. The negative control
+  breaks the Z computation (emit `b.al` / wrong condition) to force divergence or a
+  caught hang, proving the iteration/termination asserts bite.
+- **No new Emu68 file** — only existing `A64.h` encoders (`add_reg`, `subs_immed`,
+  `b_cc`, `b`, `cset`, ldr/str, `mov_immed_u16`). Exhibit-B grep unchanged.
+
+### With more time (→ [J5c])
+
+Cross-region block chaining + an instruction cache, full `Bcc`/`DBcc` condition
+coverage, forward branches across blocks, real `jsr`-through-vector decode from a
+stream, library calls from the running program, and OUR register allocator (still
+memory-backed here).
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
