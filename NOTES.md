@@ -429,6 +429,168 @@ coverage, forward branches across blocks, real `jsr`-through-vector decode from 
 stream, library calls from the running program, and OUR register allocator (still
 memory-backed here).
 
+## 2026-06-25 — [J5n] PLAN: the DIAGNOSTICS subsystem (crash bundles) — gates, not yet code
+
+A faults-are-never-silent subsystem for the 68k JIT: every fault produces one
+self-contained, shareable **crash bundle** (`tar.gz`) with everything to reproduce
+and diagnose. INTERNAL/host-side; the frozen seam (jit_region API, struct M68KState
+layout, the [J3] LVO contract, the [J5i] exception model) is NOT touched.
+
+### Gate 1 — reference summary (what the existing code establishes)
+
+- **The fault funnel already half-exists.** `j5d_engine.c` routes every fault through
+  `raise_exception(sb, st, vnum, frame_pc, &handler, errbuf, errlen)` (vectors 2/3/4/5/
+  32+n) and through `RFAIL(msg)` (clean dispatcher errors). The dispatcher main loop
+  (`j5d_run`, lines 821-1054) decodes each terminator and computes the next PC — this is
+  the one place a global instruction counter, the diff-lockstep step, and replay-to-N
+  all belong. `g_stats` already tracks per-block/insn counts.
+- **The oracle is `j5d_interp_run`** (j5d_interp.c) — same signature as `j5d_run`, its own
+  state + sandbox. It is the basis for the differential mode (run both in lockstep, trap on
+  first divergence). It already supports the exception log via `j5d_interp_set_exc_log`.
+- **The host-signal bridge shape is `graft/cpu_aarch64.h`** — `Xn(ctx,n)`, `FP/LR/SP/PC/
+  CPSR(ctx)`, `GPSTATE`/`FPSTATE`, and `struct ExceptionContext`. On Darwin arm64 the
+  mcontext exposes `__ss.__x[0..28], __fp, __lr, __sp, __pc, __cpsr` (non-opaque). I mirror
+  exactly this to dump host x0–x30/sp/pc from a signal `ucontext`.
+- **The loader skips `HUNK_SYMBOL`/`HUNK_DEBUG`** (j4_loader.c:223-249). The symbol hunk
+  format is verified: `[BE32 name-len-in-longs][name padded to longs][BE32 value]`, zero
+  length terminates; value is hunk-relative (add the hunk base, like a reloc). vasm WITHOUT
+  `-nosym` emits a real SYMBOL hunk (confirmed: `mul.s` → symbol `loop` value 0x6).
+- **Determinism holds:** single 68k execution, sandbox, deterministic stub OS, no host
+  threads. So a global instruction number #N is reproducible and replay-to-N is sound.
+- **Test/build convention:** one standalone `jXX_test.c` per spike, a Makefile target that
+  darwinizes the emu68 decoders into `build/emu68-darwin/` then clang-links the OURS files +
+  the test, run via `harness/run-hosted.sh '[J5n] PASS'` with a SIGALRM watchdog.
+
+### Gate 2 — change-set (one line per file)
+
+NEW (all OURS, AROS-licensed, no Emu68 source copied):
+- `hosted/jit68k/j5n_diag.h` — the diagnostics API: `j5d_fault(kind,detail,ctx)` funnel,
+  bundle writer, flight-recorder ring, symbol map, diff/replay config, host-signal net.
+- `hosted/jit68k/j5n_diag.c` — implements the funnel, REPORT.txt (two-level), bundle dir +
+  `tar -czf`, the LOUD banner, core.snapshot, program.exe+sha256, MANIFEST/REPRODUCE,
+  flight recorder, 68k+host register dumps, both stacks (68k return-stack walk + native
+  `backtrace()`), the SIGSEGV/SIGBUS/SIGILL/SIGFPE handlers + `sigaltstack`.
+- `hosted/jit68k/j5n_symbols.h/.c` — parse HUNK_SYMBOL (+ HUNK_DEBUG if usable) into a
+  PC→symbol map; `j5n_sym_lookup(pc)` for the call-stack/report. Loader stays unchanged
+  (I parse the file buffer independently, so j4_loader.c is not modified).
+- `hosted/jit68k/j5n_test.c` — the `[J5n]` driver: trigger each fault kind, assert a bundle
+  with REPORT.txt+core.snapshot+program.exe+MANIFEST.txt+REPRODUCE.txt + banner + REPORT
+  contents; differential trap with diverge.txt; replay-to-N lands at #N; host-signal net;
+  regression note; bundle cleanup.
+- `apps68k/diagfault.s` (small) — a labeled program that deliberately faults (div0 / illegal
+  / OOB) at a known instruction, assembled WITH symbols, to exercise symbol mapping +
+  replay-to-N on a real hunk. Built by a tools step; `.exe` committed.
+
+EDIT (engine — additive hooks only, behind a config struct; off the hot path):
+- `hosted/jit68k/j5d_engine.c` — (a) a global instruction counter `++` per dispatched 68k
+  instruction; (b) call the diag funnel at each `raise_exception`/`RFAIL` site (one wrapper
+  macro, so all paths route through `j5d_fault`); (c) per-instruction hook for diff-lockstep
+  + replay-to-N break, gated by a config pointer that is NULL unless a mode is enabled; (d)
+  push (PC,opcode) into the flight-recorder ring. NO struct/seam change — `j5d_run`'s
+  signature is unchanged; the diag config is set via a separate `j5d_set_diag()` like the
+  existing `j5d_set_exc_log()`.
+- `Makefile` — add `hosted-jit68k-j5n` target (darwinize + link OURS + j5n_*), and a tools
+  step to assemble `diagfault.exe` with symbols.
+
+### Gate 3 — data-flow paragraph
+
+The engine runs deterministically; a file-scope `g_insn_number` increments once per
+dispatched 68k instruction in `j5d_run`. A diag config (set by `j5d_set_diag`, NULL = the
+fast path the whole corpus uses) carries: the loaded program bytes + sha + sandbox handle,
+the symbol map, the flight-recorder ring, and optional diff/replay parameters. On ANY fault,
+every `raise_exception`/`RFAIL` site (and the host-signal handlers) calls `j5d_fault(kind,
+detail, host_ctx)`. The funnel snapshots M68KState + sandbox image, walks the 68k return
+stack (A7 + saved return addresses → symbols), captures the native `backtrace()`, dumps host
+registers from the signal `ucontext` (or "no host ctx" for a clean in-band fault), drains the
+flight recorder, writes the bundle dir, `tar -czf`s it, prints the banner, and returns. In
+diff mode, before each instruction the oracle steps one instruction over its mirror state and
+the engine compares register/CCR/relevant memory; first divergence writes `diverge.txt` then
+faults. In replay mode, the run breaks exactly when `g_insn_number == N`. The bundle's
+`REPRODUCE.txt` records `run-to #N` + `git rev-parse HEAD` + build config, so another machine
+re-runs the same program to the same fault.
+
+### Gate 4 — trade-offs, uncertainties, mitigations
+
+- **Lockstep granularity = per 68k INSTRUCTION, but the JIT executes per BLOCK.** The JIT
+  doesn't expose mid-block state. Mitigation: run the oracle instruction-by-instruction and
+  compare at BLOCK boundaries (the JIT's natural observation points — exactly where state is
+  flushed to M68KState, per the seam). I locate the first diverging instruction by, on a
+  block-level mismatch, re-running the oracle instruction-stepped through that block to name
+  the exact insn. This is honest: I'll document "block-boundary detection, instruction-
+  precise localization." For the injected-divergence test I can force a known mismatch.
+- **`j5d_fault` from a signal handler must be async-signal-safe-ish.** Mitigation: use
+  `sigaltstack`; do the heavy bundle writing with low-level `write`/`open` where practical,
+  accept that this is a crash path (we are already dying) and a best-effort bundle is the
+  goal; never re-enter the JIT. Document the async-signal caveat.
+- **Symbol/line info:** vasm emits HUNK_SYMBOL (label→offset) reliably; HUNK_DEBUG line info
+  is toolchain-dependent and may be absent. Plan: symbols-always, line-info-if-present,
+  report honestly what was obtained. The corpus is stripped, so the symbol demo uses a
+  purpose-built labeled `diagfault.exe`.
+- **Real host-signal net (E in INTERFACE.md) is an AROS-integration row.** I install the
+  handlers around the host-side test execution so a genuine out-of-sandbox HOST access is
+  caught and bundled (the spec's explicit ask) — but the production SIGSEGV→`j5d_raise_
+  exception` wiring inside AROS stays the owner's track; I do not fake it.
+- **Seam unchanged:** I add a side-channel `j5d_set_diag()` (mirrors `j5d_set_exc_log()`),
+  never touch struct M68KState/j5d_m68k_state layout, jit_region.h, the [J3] contract, or the
+  [J5i] model. The engine edits are additive and NULL-gated.
+
+### Bundle root README.txt (added at coordinator/user request)
+A plain-language `README.txt` at the bundle ROOT for a non-expert who just hit the crash:
+one line on what it is, the ONE action (send the whole .tar.gz), a one-line plain gloss of
+each file, and a short "For the developer" section (diff pins the wrong instruction; the
+coordinate+snapshot reproduce it via `run-to #N`; the two-level 68k+host dump says program-
+bug vs JIT-bug). Complements MANIFEST.txt (the precise index); README.txt is the friendly
+overview. The crash banner points at the archive AND says "open README.txt inside if unsure."
+
+### Deferred (honest, stated up front)
+- Snapshot-LOAD/inspect mode (load `core.snapshot` and dump): include if tractable, else
+  documented as deferred (the snapshot is still WRITTEN + reload-described in MANIFEST).
+- True per-instruction JIT lockstep (would need block-splitting); using block-boundary
+  detection + oracle instruction-localization instead.
+
+### [J5n] DONE — what shipped, and the decisions that landed during the build
+
+Built + green: `make hosted-jit68k-j5n` prints `[J5n] PASS` (harness verdict PASS). The
+binary actually printed the LOUD banner with the absolute bundle path, the differential trap
+at the exact instruction, and the replay-to-N landing on #N. A sample bundle's
+README.txt/REPORT.txt were cat'd and the program SHA-256 round-trips (bundle digest == the
+committed diagfault.exe). The whole corpus + `[J1]`–`[J5m]` re-ran green; the frozen seam is
+git-confirmed unchanged (no diff to `jit_region.h` / `j5d_jit68k.h` / the `j3_*` contract).
+
+Decisions that landed:
+- **The funnel routes through `j5d_fault`; the engine stays NULL-gated.** All fault sites
+  (`raise_exception` failures, `RFAIL`, and a NEW `J5N_UNHANDLED` check) funnel only when a
+  diag config is registered (`j5d_set_diag`, mirroring `j5d_set_exc_log`). With no diag the
+  engine is byte-for-byte as before — that's why every existing marker stayed green.
+- **`J5N_UNHANDLED` was the key insight for correct fault kinds.** The `[J5i]` model
+  "succeeds" raising an exception even when the vector is 0 (uninstalled) — it dispatches to
+  PC 0 and cascades to a bus error. I must NOT change `[J5i]`. So a diag-only check fires the
+  funnel at the ORIGIN (div0/illegal/bus with the right kind) BEFORE the cascade masks it.
+  No-op when diag is NULL, so `[J5i]` is untouched.
+- **Optional dependency via weak symbols.** The other `[J5*]` tests link `j5d_engine.c` but
+  NOT `j5n_diag.c`. I gave the engine WEAK stub definitions of the four diag hooks it calls;
+  `j5n_diag.c`'s strong defs win when linked, the weak no-ops satisfy the linker otherwise.
+  This is what keeps the diagnostics genuinely optional + the existing targets unchanged.
+- **The differential is block-boundary + oracle-localized, as planned.** `j5d_run_diff` runs
+  the JIT block-by-block and advances the instruction-precise interp oracle to each boundary
+  (a `stop-at-PC` side-channel I added to the interp), comparing there. The injected
+  divergence (JIT bridge returns a different d0 than the oracle bridge — a separate
+  `ref_lvo`) traps deterministically at 0x21000A.
+- **#N alignment was the subtle bug.** The engine counts per-block; the oracle per-
+  instruction. I made the engine count `body_insns` + 1-per-terminator so its #N equals the
+  oracle's instruction index, so the crash #N and `JIT68K_RUNTO=N` land on the same PC.
+- **Chaining gated off under diag** (it's a hot-path optimization; diagnostics are off the
+  hot path) so per-block accounting + fault localization are exact. The chained corpus
+  (`[J5k]`/`[J5j]`) registers no diag, so it keeps full chaining — re-confirmed green.
+
+### Things to discuss in the [J5n] walkthrough
+- The weak-symbol trick for the optional diag dependency — clean, or would a separate
+  `j5d_engine` compile flag be clearer?
+- Block-boundary vs true per-instruction lockstep: the honest trade, and when block-splitting
+  would be worth it.
+- The signal-handler bundle write is best-effort (we're already dying); the one real guard I
+  added was clamping the 68k stack walk to the sandbox so a corrupt a7 can't fault the handler.
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
