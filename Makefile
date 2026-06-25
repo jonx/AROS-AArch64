@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-apps hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -218,6 +218,66 @@ cocoametal-settings: | build
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
 	BIN=build/cocoametal-settings ./harness/run-hosted.sh '[SET] PASS'
+
+# FS (INTERFACE.md §9 — CM_OPT_FULLSCREEN now REAL): cm_set_option(CM_OPT_FULLSCREEN,1)
+# enters REAL native AppKit fullscreen via -[NSWindow toggleFullScreen:] (no longer
+# a stored-flag stub); 0 exits it. Drives it under the SAME main-pthread / manual-
+# CFRunLoop / NO-NSApplicationMain model as D2t and asserts PROGRAMMATICALLY (not a
+# screencapture) that the window actually entered fullscreen (styleMask &
+# NSWindowStyleMaskFullScreen AND window.frame == screen.frame), that the §6 oracle
+# stays BYTE-EXACT across the transition (the present still composes to the now-
+# fullscreen drawable), and that it exits cleanly. Documents the hand-pumped-
+# transition finding (does the async toggle complete under CFRunLoopRunInMode(...,
+# 0,true)? how many pumps?). Headless-safe: skips the window asserts with no window
+# server but keeps the oracle assert. Links the .m files (it exercises the AppKit
+# window path). Bounded + watchdog. Value-asserting marker [FS] PASS.
+cocoametal-fullscreen: | build
+	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
+		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/fullscreen_test.m \
+		-o build/cocoametal-fullscreen \
+		-framework Metal -framework Foundation -framework CoreGraphics \
+		-framework QuartzCore -framework AppKit -framework CoreFoundation
+	BIN=build/cocoametal-fullscreen TIMEOUT=$${TIMEOUT:-30} ./harness/run-hosted.sh '[FS] PASS'
+
+# LIVE (INTERFACE.md §2a — the live present FILLS the drawable): the readback test
+# the OFFSCREEN ORACLE was blind to. A USER saw the live content as a small white
+# rect in a black fullscreen window — the CAMetalLayer drawable was not resized to
+# fill the content view on the fullscreen transition. This test sets the live layer
+# framebufferOnly=NO, uploads the 4-quadrant + marker scene, composes it into the
+# live drawable via the REAL present pass, READS THE LIVE DRAWABLE BACK, and asserts
+# the scene FILLS the drawable (drawable == content-view backing size; the four
+# quadrant colours land in the aspect-fit content rect; the letterbox is BLACK, never
+# white) — WINDOWED and after entering fullscreen. Headless-safe (skips the live
+# asserts, keeps the §6 oracle). Drives the async fullscreen toggle under the same
+# main-pthread / manual-CFRunLoop model as [FS] (bounded [NSApp run]+watchdog only to
+# OBSERVE the transition; prod shim stays non-blocking, §3). Links the .m files (it
+# exercises the AppKit window path). Value-asserting marker [LIVE] PASS.
+cocoametal-livedraw: | build
+	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
+		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/livedraw_test.m \
+		-o build/cocoametal-livedraw \
+		-framework Metal -framework Foundation -framework CoreGraphics \
+		-framework QuartzCore -framework AppKit -framework CoreFoundation
+	BIN=build/cocoametal-livedraw TIMEOUT=$${TIMEOUT:-30} ./harness/run-hosted.sh '[LIVE] PASS'
+
+# SHOW (human-facing — NOT in the regression matrix): a PERSISTENT on-screen build so
+# the USER can LOOK and confirm the fix. Opens the window, draws an OBVIOUS scene (4
+# quadrant colours + a 1px bright border at the framebuffer edges so edge-fill is
+# visible + a marker), presents CONTINUOUSLY, stays WINDOWED a few seconds, then
+# ENTERS FULLSCREEN and stays so the user can SEE it fill the screen (black letterbox
+# bars if the screen aspect differs, never white). Bounded: auto-exits after ~20s or
+# on a keypress so it can't hang. `make cocoametal-show`.
+cocoametal-show: | build
+	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
+		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/show.m \
+		-o build/cocoametal-show \
+		-framework Metal -framework Foundation -framework CoreGraphics \
+		-framework QuartzCore -framework AppKit -framework CoreFoundation
+	@echo ">> running build/cocoametal-show — a window opens, then goes fullscreen; auto-exits ~20s (or press a key / Esc)"
+	build/cocoametal-show
 
 # V: the host-volume Mac glue — self-contained NFC normalization (table-driven,
 # NOT CFStringNormalize), the ".<name>.amimeta" sidecar (atomic temp+rename,
@@ -802,6 +862,40 @@ hosted-jit68k-j5j: | build
 		-o build/host-jit68k-j5j
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5j \
 		./harness/run-hosted.sh '[J5j] PASS'
+
+# [J5k] CROSS-REGION BLOCK CHAINING: chain cached blocks with direct AArch64 branches past the
+# C dispatcher (lazy backpatch/linking), keeping the 68k register file pinned live in host regs
+# across the hop (the file spills to struct j5d_m68k_state ONLY at a dispatcher boundary). The
+# chain-heavy Mandelbrot is run through the chained engine; its PutChar stream + final registers
+# + full sandbox memory are asserted byte-exact vs the independent interpreter (correctness gates
+# the marker), and the C-dispatcher round-trips are measured before vs after (~42k -> ~1.7k). The
+# change is entirely in OUR engine (j5d_engine.c) below the frozen seam; no emu68/ file is touched,
+# struct M68KState/j5d_m68k_state layout, the [J3] LVO contract, and the [J5i] exception model are
+# unchanged. Negative control bites. Watchdog 20s -> FAIL.
+hosted-jit68k-j5k: | build
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5k_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-j5k
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5k \
+		./harness/run-hosted.sh '[J5k] PASS'
 
 # apps68k: run REAL 68k Amiga programs (vasm-assembled hunk executables) through the
 # JIT. The toolchain (tools/build-vasm.sh builds vasm from source) produces the
