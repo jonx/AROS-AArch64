@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-apps hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-apps hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1085,6 +1085,50 @@ hosted-jit68k-j5n: | build
 		-o build/host-jit68k-j5n
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5n TIMEOUT=40 \
 		./harness/run-hosted.sh '[J5n] PASS'
+
+# [J5o] THE 68881/68882 FPU CORE: the FIRST corpus program to use the FPU coprocessor (line-F).
+# Drives Emu68's REAL EMIT_FPU decoder (the verbatim, quarantined M68k_LINEF.c) — FMOVE (reg<->
+# reg, mem<->reg, format conversions .s/.d and int .l/.w/.b<->FP), FADD/FSUB/FMUL/FDIV/FSQRT/
+# FABS/FNEG, FCMP/FTST — routing its FP MEMORY touches through the sandbox (j5d_ea_helpers.c
+# j5d_fpu_* helpers: base-adjust + per-element byteswap) and the FP register file FP0..FP7 (mapped
+# to AArch64 d8..d15) + FPCR/FPSR through the APPENDED state (struct j5d_m68k_state's [J5o] fields,
+# every existing offset unchanged). j5o_test.c runs j5o.exe through the JIT AND the INDEPENDENT
+# C-double oracle (j5d_interp.c) and asserts BIT-EXACT (FP0..FP7 raw bits + FPSR cc byte + the
+# stored .d/.s/.l/.w/.b results + the integer regs + memory + d0), with a negative control + the
+# whole corpus re-confirmed green. PRECISION MODEL: double (80-bit extended not bit-reproducible).
+# The darwinize transform adds --fpu-sandbox (M68k_LINEF.c: route fldd/fstd/flds/fsts through the
+# sandbox FP-mem helpers + neutralise the bare-metal Poly/cache asm) + --libm-asm-fix (math/libm.h:
+# the two clang-incompatible inline-asm constraints). The quarantine files stay BYTE-VERBATIM.
+# Prereq: bin/j5o.exe is committed; to regenerate:
+#   apps68k/tools/build-vasm.sh && apps68k/tools/assemble.sh   (assemble.sh builds j5o too, -m68882)
+hosted-jit68k-j5o: | build
+	mkdir -p build/emu68-darwin build/emu68-darwin/math
+	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
+	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		-Wno-incompatible-library-redeclaration \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c hosted/jit68k/j5o_fpu_shims.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5o_test.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		hosted/jit68k/apps68k/stublib.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c build/emu68-darwin/M68k_LINEF.c \
+		-o build/host-jit68k-j5o
+	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5o TIMEOUT=40 \
+		./harness/run-hosted.sh '[J5o] PASS'
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:
