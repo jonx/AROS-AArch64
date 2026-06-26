@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1395,6 +1395,30 @@ run68k: | build
 		build/emu68-darwin/M68k_CC.c build/emu68-darwin/M68k_LINEF.c \
 		-o build/run68k
 	@echo ">> built build/run68k — run a 68k hunk:  build/run68k hosted/jit68k/apps68k/bin/mandel.exe"
+
+# [args] run68k CLI argument passing (AmigaDOS convention): build run68k, run the args
+# demo (apps68k/bin/args.exe, compiled with crt0_args.s) with a FIXED arg vector, and
+# assert the program PRINTED the passed args byte-exact. Proves run68k delivers the args
+# (A0 = the arg string, D0 = its length incl '\n') into the running 68k program, the
+# crt0_args.s splitter builds argv[], and main(argc,argv) saw them. Also re-checks a
+# no-args-reading program (mandel) still exits 0 (A0/D0 setup is backward-compatible).
+hosted-jit68k-args: run68k
+	@echo "== [args] run68k hello world 42 =="
+	@out="$$(build/run68k hosted/jit68k/apps68k/bin/args.exe hello world 42 2>/dev/null)"; \
+	exp="$$(printf 'argc=4\nargv[0]=a.out\nargv[1]=hello\nargv[2]=world\nargv[3]=42\n')"; \
+	echo "$$out"; \
+	[ "$$out" = "$$exp" ] || { echo "[args] FAIL: output mismatch"; exit 1; }
+	@echo "== [args] no args (empty AmigaDOS string, D0=1) =="
+	@out="$$(build/run68k hosted/jit68k/apps68k/bin/args.exe 2>/dev/null)"; \
+	exp="$$(printf 'argc=1\nargv[0]=a.out\n')"; \
+	echo "$$out"; \
+	[ "$$out" = "$$exp" ] || { echo "[args] FAIL: no-args output mismatch"; exit 1; }
+	@echo "== [args] backward-compat: a no-args-reading program (mandel) still exits 0 =="
+	@build/run68k hosted/jit68k/apps68k/bin/mandel.exe >/dev/null 2>&1; \
+	rc=$$?; [ $$rc -eq 0 ] || { echo "[args] FAIL: mandel exit $$rc (expected 0)"; exit 1; }
+	@echo "[args] PASS: run68k delivered the AmigaDOS CLI args (A0=string, D0=len incl newline)"
+	@echo "[args]       into the 68k program; crt0_args.s split them into argv[]; the no-args"
+	@echo "[args]       case and the backward-compat corpus (mandel) are unaffected."
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:
