@@ -73,12 +73,34 @@ same way Phase 1 "sees" the QEMU framebuffer. See [PHASE2.md](PHASE2.md) for the
 spikes, [ROADMAP.md](ROADMAP.md) for the arc, and [NOTES.md](NOTES.md) for the
 decision log (incl. the real bugs grounding caught).
 
+## Run classic 68k software — `run68k`
+
+Beyond the AArch64 *backend*, the repo includes a **68k→AArch64 JIT** that runs
+self-contained classic-Amiga **68k** programs — integer **and** 68881/68882
+**hardware floating-point** — directly on Apple Silicon, including real
+`vbcc`-compiled C, each byte-exact-verified against an independent interpreter.
+The **`run68k`** CLI runs a 68k Amiga **hunk executable** straight from your terminal:
+
+```sh
+make run68k                                          # -> build/run68k
+build/run68k hosted/jit68k/apps68k/bin/mandel.exe    # prints a Mandelbrot, exit 0
+build/run68k hosted/jit68k/apps68k/bin/j5t.exe       # a vbcc-compiled hardware-FP program
+```
+
+The program's output goes to stdout (pipe-able), the exit code is the program's
+own `D0`, and any fault writes a self-contained **crash-bundle** `.tar.gz`. It runs
+*system-friendly* 68k software — a CPU+FPU JIT with a stub OS, not a full-chipset
+emulator; programs that open real AmigaOS libraries await the AROS integration, and
+hardware-banging games/demos want UAE. **Full docs:
+[hosted/jit68k/run68k.md](hosted/jit68k/run68k.md).**
+
 ## What's here
 
 | Path | Purpose |
 |------|---------|
 | `boot/` | the kernel: `start.S`, `uart.c`, `exc.c`+`vectors.S`, `mmu.c`, `irq.c`, `pmm.c`, `task.c`+`switch.S`, `shell.c`, `fb.c`, `kmain.c` |
 | `hosted/` | Phase 2 spikes: `host.c`/`switch.S` (H1), `preempt.c` (H2), `abishim.*` (H3), `exec.c` (H4), `mem.c` (H5), `kern.c` (H6), `display.c` (H7), `library.c` (H8), `signal.c` (H9), `msgport.c` (H10), `device.c` (H11), `execboot.c` (H12) |
+| `hosted/jit68k/` | the **68k→AArch64 JIT** (Emu68's decoders re-hosted: integer ISA + 68881/68882 FPU, block chaining, crash-bundle diagnostics) + the **`run68k`** CLI — [run68k.md](hosted/jit68k/run68k.md) |
 | `harness/run.sh` | the loop: build → boot headless → observe/drive → uniform verdict |
 | `harness/run-hosted.sh` | the hosted loop: run the macOS binary → observe stdout/PNG → verdict |
 | `harness/qmp.py` | QMP client (framebuffer screendump) |
