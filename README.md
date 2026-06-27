@@ -91,7 +91,7 @@ The program's output goes to stdout (pipe-able), the exit code is the program's
 own `D0`, and any fault writes a self-contained **crash-bundle** `.tar.gz`. It runs
 *system-friendly* 68k software — a CPU+FPU JIT with a stub OS, not a full-chipset
 emulator; programs that open real AmigaOS libraries await the AROS integration, and
-hardware-banging games/demos want UAE. **Full docs:
+hardware-banging games/demos want a full-chipset Amiga emulator. **Full docs:
 [hosted/jit68k/run68k.md](hosted/jit68k/run68k.md).**
 
 ## What's here
