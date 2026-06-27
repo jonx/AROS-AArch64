@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
 
 build:
 	@mkdir -p build
@@ -340,6 +340,27 @@ hosted-clipboard: | build
 		-o build/host-clipboard \
 		-framework Foundation -framework AppKit
 	BIN=build/host-clipboard ./harness/run-hosted.sh '[C] PASS'
+
+# The deployable clipboard host shim: build/libpasteboard.dylib — the artifact the
+# AROS clipboard-sync task loads via hostlib.resource (peer of cocoametal.dylib).
+# Exported symbols are exactly the pasteboard.h contract (pasteboard.exports); the
+# binary is unstripped (dlsym by name) + ad-hoc signed so a hosted process dlopens it.
+PASTEBOARD_DYLIB := build/libpasteboard.dylib
+pasteboard-dylib: | build
+	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra -dynamiclib \
+		-install_name @rpath/libpasteboard.dylib \
+		-exported_symbols_list hosted/clipboard/pasteboard.exports \
+		hosted/clipboard/pasteboard.m -o $(PASTEBOARD_DYLIB) \
+		-framework Foundation -framework AppKit
+	codesign -s - -f $(PASTEBOARD_DYLIB)
+	@echo ">> built $(PASTEBOARD_DYLIB) (exported host_pb_* symbols:)"
+	@nm -gU $(PASTEBOARD_DYLIB) | grep ' _host_' || true
+
+# dlopen-based ABI conformance for libpasteboard.dylib (the HostLib_Open boundary).
+pasteboard-abi: pasteboard-dylib
+	clang -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/clipboard hosted/clipboard/abi_test.c -o build/pasteboard-abi
+	BIN=build/pasteboard-abi ./harness/run-hosted.sh '[PBABI] PASS'
 
 # N: the bsdsocket host pump — non-blocking host BSD sockets + a kqueue readiness
 # pump thread that converts fd-readiness into a per-target wake (the stand-in for
