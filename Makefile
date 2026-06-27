@@ -114,7 +114,8 @@ hosted-display: | build
 hosted-cocoametal: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/d1_test.m -o build/host-cocoametal \
+		hosted/cocoametal/cocoametal_control.m hosted/cocoametal/d1_test.m \
+		-o build/host-cocoametal \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework ImageIO -framework QuartzCore -framework AppKit
 	BIN=build/host-cocoametal ./harness/run-hosted.sh '[D1] PASS'
@@ -178,7 +179,8 @@ cocoametal-hiddsim: cocoametal-dylib
 cocoametal-d2t: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/d2t_test.m -o build/cocoametal-d2t \
+		hosted/cocoametal/cocoametal_control.m hosted/cocoametal/d2t_test.m \
+		-o build/cocoametal-d2t \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
 	BIN=build/cocoametal-d2t ./harness/run-hosted.sh '[D2t] PASS'
@@ -194,7 +196,8 @@ cocoametal-d2t: | build
 cocoametal-input: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/input_test.m -o build/cocoametal-input \
+		hosted/cocoametal/cocoametal_control.m hosted/cocoametal/input_test.m \
+		-o build/cocoametal-input \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
 	BIN=build/cocoametal-input ./harness/run-hosted.sh '[D4D5] PASS'
@@ -213,7 +216,8 @@ cocoametal-input: | build
 cocoametal-settings: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/settings_test.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
+		hosted/cocoametal/settings_test.m \
 		-o build/cocoametal-settings \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -234,7 +238,8 @@ cocoametal-settings: | build
 cocoametal-fullscreen: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/fullscreen_test.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
+		hosted/cocoametal/fullscreen_test.m \
 		-o build/cocoametal-fullscreen \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -256,7 +261,8 @@ cocoametal-fullscreen: | build
 cocoametal-livedraw: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/livedraw_test.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
+		hosted/cocoametal/livedraw_test.m \
 		-o build/cocoametal-livedraw \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -272,7 +278,8 @@ cocoametal-livedraw: | build
 cocoametal-show: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/show.m \
+		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
+		hosted/cocoametal/show.m \
 		-o build/cocoametal-show \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
