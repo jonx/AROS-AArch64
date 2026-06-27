@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
 
 build:
 	@mkdir -p build
@@ -134,9 +134,10 @@ cocoametal-dylib: | build
 		-exported_symbols_list hosted/cocoametal/cocoametal.exports \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
+		hosted/cocoametal/cocoametal_shell.m \
 		-o $(COCOAMETAL_DYLIB) \
 		-framework Metal -framework Foundation -framework CoreGraphics \
-		-framework QuartzCore -framework AppKit
+		-framework QuartzCore -framework AppKit -framework ImageIO
 	codesign -s - -f $(COCOAMETAL_DYLIB)
 	@echo ">> built $(COCOAMETAL_DYLIB) (exported cm_* symbols:)"
 	@nm -gU $(COCOAMETAL_DYLIB) | grep ' _cm_' || true
@@ -151,6 +152,18 @@ cocoametal-abi: cocoametal-dylib
 	clang -arch arm64 -O2 -Wall -Wextra \
 		-Ihosted/cocoametal hosted/cocoametal/abi_test.c -o build/cocoametal-abi
 	BIN=build/cocoametal-abi ./harness/run-hosted.sh '[ABI] PASS'
+
+# Host app shell ([GSHELL]): dlopen the REAL build/cocoametal.dylib, let cm_open
+# install the menu bar + About + icon (cocoametal_shell.m), then assert — against
+# the production dylib — that the menu tree is installed AND invoking a menu item
+# drives the real cm_* ABI (host-acted -> cm_set_option/get_option; AROS-facing ->
+# CM_EV_SETTING). The merge's de-risk: the POC's [G-MENU]/[G-ACTION], now through
+# the real dylib + real wiring (not a mock sink). Links AppKit; dlopens the dylib.
+cocoametal-shell: cocoametal-dylib
+	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/cocoametal hosted/cocoametal/shell_test.m -o build/cocoametal-shell \
+		-framework AppKit -framework Foundation
+	BIN=build/cocoametal-shell ./harness/run-hosted.sh '[GSHELL] PASS'
 
 # D3 host-support (INTERFACE.md §2a + §8): the HIDD-shaped behavioral harness —
 # the de-risk + reference for the AROS bitmap-class UpdateRect wiring. Plain C,
