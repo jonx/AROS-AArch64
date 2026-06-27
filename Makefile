@@ -133,12 +133,15 @@ cocoametal-dylib: | build
 		-install_name @rpath/cocoametal.dylib \
 		-exported_symbols_list hosted/cocoametal/cocoametal.exports \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
+		hosted/cocoametal/cocoametal_settings_schema.m hosted/cocoametal/cocoametal_control.m \
 		hosted/cocoametal/cocoametal_shell.m \
 		-o $(COCOAMETAL_DYLIB) \
 		-framework Metal -framework Foundation -framework CoreGraphics \
-		-framework QuartzCore -framework AppKit -framework ImageIO
+		-framework QuartzCore -framework AppKit -framework ImageIO \
+		-framework AVFoundation -framework CoreVideo -framework CoreMedia
 	codesign -s - -f $(COCOAMETAL_DYLIB)
+	cp -f hosted/cocoametal/settings.json build/settings.json
+	@echo ">> shipped build/settings.json (schema, resolved next to the dylib)"
 	@echo ">> built $(COCOAMETAL_DYLIB) (exported cm_* symbols:)"
 	@nm -gU $(COCOAMETAL_DYLIB) | grep ' _cm_' || true
 
@@ -162,7 +165,7 @@ cocoametal-abi: cocoametal-dylib
 cocoametal-shell: cocoametal-dylib
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		-Ihosted/cocoametal hosted/cocoametal/shell_test.m -o build/cocoametal-shell \
-		-framework AppKit -framework Foundation
+		-framework AppKit -framework Foundation -framework AVFoundation -framework CoreMedia
 	BIN=build/cocoametal-shell ./harness/run-hosted.sh '[GSHELL] PASS'
 
 # D3 host-support (INTERFACE.md §2a + §8): the HIDD-shaped behavioral harness —
