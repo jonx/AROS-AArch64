@@ -372,8 +372,49 @@ pasteboard-abi: pasteboard-dylib
 # data arrives (no busy-spin). Host clang (NOT AROS crosstools), libSystem has
 # sockets+kqueue; clean-room from docs/features/bsdsocket-net/spec.md.
 hosted-bsdsocket: | build
-	clang -arch arm64 -O2 -Wall -Wextra hosted/bsdsocket/*.c -o build/host-bsdsocket
+	clang -arch arm64 -O2 -Wall -Wextra \
+		hosted/bsdsocket/bsdsock_pump.c hosted/bsdsocket/bsdsock_shim.c \
+		hosted/bsdsocket/bsdsock_test.c -o build/host-bsdsocket
 	BIN=build/host-bsdsocket ./harness/run-hosted.sh '[N] PASS'
+
+# The deployable bsdsocket host shim: build/libbsdsockhost.dylib — the artifact the
+# AROS-side bsdsocket.library (arch/all-unix/bsdsocket) loads via hostlib.resource
+# (peer of cocoametal.dylib / libpasteboard.dylib). Pump + non-blocking socket shim;
+# the readiness wake is the ps_create_cb seam (the standalone proof's self-pipe wake
+# becomes exec Signal(task, readySig) in the graft). Exported symbols are exactly
+# bsdsock.exports; unstripped (dlsym by name) + ad-hoc signed so a hosted process
+# dlopens it.
+BSDSOCK_DYLIB := build/libbsdsockhost.dylib
+bsdsock-dylib: | build
+	clang -arch arm64 -O2 -Wall -Wextra -dynamiclib \
+		-install_name @rpath/libbsdsockhost.dylib \
+		-exported_symbols_list hosted/bsdsocket/bsdsock.exports \
+		hosted/bsdsocket/bsdsock_pump.c hosted/bsdsocket/bsdsock_shim.c \
+		-o $(BSDSOCK_DYLIB)
+	codesign -s - -f $(BSDSOCK_DYLIB)
+	@echo ">> built $(BSDSOCK_DYLIB) (exported symbols:)"
+	@nm -gU $(BSDSOCK_DYLIB) | grep ' _' || true
+
+# dlopen-based ABI conformance for libbsdsockhost.dylib (the HostLib_Open boundary):
+# resolve every bsdsock.exports symbol, then drive the pump through the CALLBACK seam
+# (ps_create_cb) — register a socketpair read end, poke the write end, assert the
+# wake callback fires and pump_drain reports the fd ready. The exact load path the
+# AROS bsdsocket.library will use.
+bsdsock-abi: bsdsock-dylib
+	clang -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/bsdsocket hosted/bsdsocket/bsdsock_abi_test.c -o build/bsdsock-abi
+	BIN=build/bsdsock-abi ./harness/run-hosted.sh '[NABI] PASS'
+
+# The Darwin-BSD-errno -> AmiTCP-errno translation table ([N4]), unit-tested host-side
+# before it lands in the AROS module (arch/all-unix/bsdsocket/errno_xlate.c). The
+# load-bearing check is the one NON-identity case the explicit table caught: macOS
+# EOPNOTSUPP==102 vs AmiTCP EOPNOTSUPP==45 (the rest of the BSD socket range is
+# identity but asserted entry by entry). Pure int->int, no sockets.
+bsdsock-errno: | build
+	clang -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/bsdsocket hosted/bsdsocket/errno_test.c hosted/bsdsocket/errno_xlate.c \
+		-o build/bsdsock-errno
+	BIN=build/bsdsock-errno ./harness/run-hosted.sh '[NERR] PASS'
 
 # H8: a tiny exec.library via the real AROS LVO mechanism — JumpVec table built by
 # MakeLibrary, indirect LVO dispatch, SetFunction hot-patch. Data-pointer vectors,
