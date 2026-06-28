@@ -655,9 +655,24 @@ pump + drain are exactly what the poll needs).
   kqueue pthread) came up under the threaded scheduler without crashing**, and
   BSDSocket_OpenLib made a per-task base. Proof image:
   docs/features/bsdsocket-net/library-load-proof.png.
-- Next: [N5b] a socket round-trip through the LVOs (connect/send/recv vs a localhost
-  echo server — needs a small AROS client + the bsdsocket linklib); then the real
-  WaitSelect (Layer C) + the resolver → [N6] HTTP fetch.
+- **[N5b] LIVE TCP ROUND-TRIP — PROVEN, both ends.** Built an AROS client
+  `socktest` (C: command using the inline defines/bsdsocket.h LVO stubs) + a host
+  localhost echo server. Booted AROS, ran `socktest` at the shell →
+  **`[N5B] PASS: round-trip echoed 'PING42' (6 bytes)`**, and the host echo server
+  logged `client connected / bounced 6 bytes / client closed`. So the real
+  bsdsocket.library data path works live on Apple Silicon: `socket()` → `connect()`
+  (non-blocking + the darwin **timer-poll park** + `SO_ERROR`) → `send` → `recv`
+  echoed-equal → `CloseSocket`, errno-translated, per-task SocketBase, kqueue pump —
+  no trap. The H11 two-sided check. Proof: docs/features/bsdsocket-net/roundtrip-proof.png;
+  test programs stashed in hosted/bsdsocket/n5b/.
+  - Build notes: the client uses `defines/bsdsocket.h` directly (clib protos pull
+    sys/types.h, uninstalled in -quick) and links posixc (AmiTCP sys/socket.h pulls
+    sys/types.h, which lives in the posixc include tree — so NOT -noposixc).
+  - The headless emergency-CLI boot currently crashes in dos/LoadSeg (a pre-existing
+    boot fragility, unrelated to bsdsocket); the windowed-boot CLI was used instead.
+- Remaining for the whole feature: the real timer-poll **WaitSelect** (LVO 21,
+  currently stubbed — Layer C) + the **resolver** (`gethostbyname`) → **[N6]** a real
+  outbound HTTP fetch.
 
 ### Trade-off / to discuss in the walkthrough
 - `errno_xlate.{c,h}` is authored + host-tested in `hosted/bsdsocket/`; the AROS
