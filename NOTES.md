@@ -682,10 +682,17 @@ pump + drain are exactly what the poll needs).
 - **The feature is functionally complete** (per the spec's [N1]–[N6] scope): host
   pump + errno + the AROS library; socket/bind/listen/accept/connect/send/recv/
   WaitSelect all live; localhost round-trip AND real-internet fetch proven.
-- Still a stub by design (spec defers it): the **resolver** (`gethostbyname` and the
-  get*by* family). [N6] used a raw IP, sidestepping DNS. A darwin-safe resolver
-  (host getaddrinfo offloaded to a helper thread + timer-poll, like the socket park)
-  is the documented next enhancement.
+- **[DNS] resolver — DONE & PROVEN LIVE.** Implemented `gethostbyname` (LVO 35) the
+  darwin-safe way: host `getaddrinfo` on a detached pthread (libbsdsockhost.dylib
+  `hs_resolve_start/poll/free`), the AROS LVO **timer-polls** the result (only the
+  calling task parks), then builds a per-task `struct hostent`. `nettest` on booted
+  AROS: **`[DNS] PASS: resolved one.one.one.one -> 1.1.1.1, fetched 'HTTP/1.1 301'`**.
+  Proof: docs/features/bsdsocket-net/dns-proof.png.
+- **FEATURE COMPLETE** — the bsdsocket.library does sockets + WaitSelect + DNS, all
+  proven live on Apple Silicon (AROS genuinely on the internet). Remaining LVOs are
+  secondary/rarely-used stubs outside the [N1]–[N6] scope (gethostbyaddr,
+  get{net,serv,proto}by*, inet_*, Obtain/ReleaseSocket, Dup2Socket, SocketBaseTagList,
+  send/recvmsg, GetSocketEvents) — fillable as needs arise.
 
 ### Trade-off / to discuss in the walkthrough
 - `errno_xlate.{c,h}` is authored + host-tested in `hosted/bsdsocket/`; the AROS
