@@ -591,6 +591,47 @@ Decisions that landed:
 - The signal-handler bundle write is best-effort (we're already dying); the one real guard I
   added was clamping the 68k stack walk to the sandbox so a corrupt a7 can't fault the handler.
 
+## bsdsocket.library (host networking) — implementation log
+
+Building the `bsdsocket-net` feature (real TCP/IP by forwarding AROS's
+`bsdsocket.library` to the Mac's BSD sockets). Design/spec:
+`docs/features/bsdsocket-net/`. Working the chunks host-first (fast loop), AROS
+graft last (ephemeral cross-build).
+
+### Key decisions
+- **Host pump packaged as a dylib, peer of cocoametal/pasteboard.**
+  `build/libbsdsockhost.dylib` (`make bsdsock-dylib`) exports exactly
+  `hosted/bsdsocket/bsdsock.exports`; the AROS side reaches it via
+  `hostlib.resource` (`HostLib_Open`+`HostLib_GetPointer`), the proven pattern.
+  ABI verified by `make bsdsock-abi` ([NABI]) — dlopen + resolve all 19 symbols.
+- **The readiness→wake seam is `ps_create_cb`.** The standalone proof wakes a
+  self-pipe; the graft installs `Signal(task, readySig)` via `ps_create_cb(wake,
+  cookie)`. The pump code is unchanged — only the callback differs (the single
+  swap point the spec promised). Callback runs on the pump (host) thread →
+  host-wake discipline is the AROS side's job.
+- **Module location: `arch/all-unix/bsdsocket/`, not `all-darwin/`.** Confirmed
+  tree-wide there is no unix host-socket bsdsocket (only Windows mingw32); the
+  host-neutral core benefits every hosted AROS, with kqueue isolated in one file
+  (`readiness_*`). Linux `epoll` backend is a bounded follow-on, not built here.
+- **errno table built explicitly (`errno_xlate.c`), and it mattered.** The spec's
+  "don't assume identity" caught a real one: macOS `EOPNOTSUPP==102` vs AmiTCP
+  `EOPNOTSUPP==45` — a genuine non-identity map. Rest of the BSD socket range is
+  identity but asserted entry-by-entry. `make bsdsock-errno` ([NERR]) = 25/25.
+
+### Status
+- [N1]–[N3] (pump round-trip / WaitSelect-style readiness / non-blocking park):
+  PASS (pre-existing spike, re-verified 9/9).
+- [NABI] dlopen ABI + the `ps_create_cb` wake seam through the boundary: PASS.
+- [N4]/[NERR] errno translation table: PASS 25/25.
+- Next: author `arch/all-unix/bsdsocket/` (the real LVO library) → [N5] graft,
+  then [N6] real fetch. Build is the ephemeral AROS crosstools tree.
+
+### Trade-off / to discuss in the walkthrough
+- `errno_xlate.{c,h}` is authored + host-tested in `hosted/bsdsocket/`; the AROS
+  module needs the same file. Kept pure int→int (no errno.h dependency) so one
+  copy compiles in both worlds — but the AROS module currently gets its own copy
+  (upstreamable/self-contained) at the cost of a hand-sync. Worth a check rule.
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
