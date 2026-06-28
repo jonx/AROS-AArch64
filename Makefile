@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
 
 build:
 	@mkdir -p build
@@ -134,7 +134,7 @@ cocoametal-dylib: | build
 		-exported_symbols_list hosted/cocoametal/cocoametal.exports \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings_schema.m hosted/cocoametal/cocoametal_control.m \
-		hosted/cocoametal/cocoametal_shell.m \
+		hosted/cocoametal/cocoametal_shell.m hosted/cocoametal/cocoametal_statusbar.m \
 		-o $(COCOAMETAL_DYLIB) \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework ImageIO \
@@ -167,6 +167,19 @@ cocoametal-shell: cocoametal-dylib
 		-Ihosted/cocoametal hosted/cocoametal/shell_test.m -o build/cocoametal-shell \
 		-framework AppKit -framework Foundation -framework AVFoundation -framework CoreMedia
 	BIN=build/cocoametal-shell ./harness/run-hosted.sh '[GSHELL] PASS'
+
+# Status bar LEDs + theme ([STATUS]): dlopen the REAL build/cocoametal.dylib, let
+# cm_open build the status bar (cocoametal_statusbar.m), then assert — against the
+# production dylib — that the NSVisualEffectView + CMLEDView are installed, that
+# cm_set_option(CM_OPT_THEME,…) drives NSApp.appearance (Dark/Light/System), and
+# that the Activity LED lights on cm_present and decays when presenting stops. The
+# footer is host chrome (not in the oracle), so it is asserted via AppKit objects —
+# the same unattended technique as [GSHELL]. Links AppKit; dlopens the dylib.
+cocoametal-statusbar: cocoametal-dylib
+	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/cocoametal hosted/cocoametal/statusbar_test.m -o build/cocoametal-statusbar \
+		-framework AppKit -framework Foundation
+	BIN=build/cocoametal-statusbar ./harness/run-hosted.sh '[STATUS] PASS'
 
 # D3 host-support (INTERFACE.md §2a + §8): the HIDD-shaped behavioral harness —
 # the de-risk + reference for the AROS bitmap-class UpdateRect wiring. Plain C,
@@ -328,6 +341,46 @@ hosted-coreaudio: | build
 		-framework AudioToolbox -framework AudioUnit \
 		-framework CoreFoundation -framework Foundation
 	BIN=build/host-coreaudio ./harness/run-hosted.sh '[A] PASS'
+
+# Deployable CoreAudio host shim: the future AROS AHI sub-driver will load this
+# through hostlib.resource, peer to cocoametal.dylib/libpasteboard.dylib.
+COREAUDIO_DYLIB := build/libcoreaudio.dylib
+coreaudio-dylib: | build
+	clang -arch arm64 -O2 -Wall -Wextra -dynamiclib \
+		-install_name @rpath/libcoreaudio.dylib \
+		-exported_symbols_list hosted/coreaudio/coreaudio.exports \
+		hosted/coreaudio/coreaudio_shim.c -o $(COREAUDIO_DYLIB) \
+		-framework AudioToolbox -framework AudioUnit \
+		-framework CoreFoundation -framework Foundation
+	codesign -s - -f $(COREAUDIO_DYLIB)
+	@echo ">> built $(COREAUDIO_DYLIB) (exported ca_* symbols:)"
+	@nm -gU $(COREAUDIO_DYLIB) | grep ' _ca_' || true
+
+# The same numeric CoreAudio proof, but linked through the deployable dylib
+# boundary instead of compiling the shim directly into the test binary.
+coreaudio-abi: coreaudio-dylib
+	clang -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/coreaudio hosted/coreaudio/a_test.c \
+		-Lbuild -lcoreaudio -Wl,-rpath,@executable_path \
+		-o build/coreaudio-abi \
+		-framework AudioToolbox -framework AudioUnit \
+		-framework CoreFoundation -framework Foundation
+	BIN=build/coreaudio-abi ./harness/run-hosted.sh '[A] PASS'
+
+# End-to-end AROS audio smoke: deploy the CoreAudio host dylib, boot windowed
+# AROS with a short startup file, register DEVS:AudioModes/COREAUDIO, and run
+# C:AHISmoke through ahi.device. The harness asserts live CoreAudio ring output
+# and captures a screenshot under run/darwin-aarch64/.
+audio-smoke:
+	./graft/audio-smoke
+
+# Run the in-tree AROS benchmark suite (exec + clib) on booted AROS and print the
+# results. Build the binaries first from the AROS build dir:
+#   make test-benchmarks-exec-quick test-benchmarks-clib-quick
+# Pass benchmark names as BENCH=..., e.g. make bench BENCH="clib/dhrystone".
+# See docs/features/benchmarks/README.md.
+bench:
+	./graft/bench-run $(BENCH)
 
 # C: the NSPasteboard clipboard host shim — prove pasteboard text get/set, the
 # changeCount change-signal source, and the ISO-8859-1<->UTF-8 transcode the bridge

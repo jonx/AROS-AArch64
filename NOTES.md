@@ -700,6 +700,92 @@ pump + drain are exactly what the poll needs).
   copy compiles in both worlds — but the AROS module currently gets its own copy
   (upstreamable/self-contained) at the cost of a hand-sync. Worth a check rule.
 
+## 2026-06-28 — [LED+THEME] PLAN: Amiga status-bar LEDs + a Dark/Light/System theme
+
+Host-layer feature for the Daedalos window: turn the footer into a proper **status
+bar** with Amiga-style **Power + Activity LEDs**, and add a **theme switch
+(Dark / Light / System)** so the whole app — title bar, menus, Settings, and the
+footer — reads as one coherent appearance. Worked under /slow-ai (gates first).
+All host-side in `hosted/cocoametal/`; **no `../aros-upstream` change, ABI stays 2.**
+
+### Decisions (answered by John before code)
+- **Second LED = Power + Activity, host-only.** Power is real (running + the
+  `CM_OPT_POWER` lifecycle). The host can't see real AROS disk I/O without an OS-tree
+  hook + an ABI bump, so the second LED is an honest **Activity** light driven by
+  `cm_present` cadence — labeled Activity, not DF0. A true DF0 disk LED is a documented
+  follow-up (needs `arch/*/trackdisk`/emul hook + ABI v3 + HIDD rebuild).
+- **Theme via `NSApp.appearance`, three-way:** System (nil) / Light (Aqua) / Dark
+  (DarkAqua). New host-acted key `CM_OPT_THEME = 0x05` in the reserved `0x05..0x0F`
+  range — exactly the `CM_OPT_RETINA = 0x04` precedent, so **CM_ABI_VERSION stays 2**.
+  Default **System**.
+- **Native material status bar:** an `NSVisualEffectView` (titlebar/window material)
+  for the footer background — auto-tracks the theme, native vibrancy, least code.
+
+### Change-set (one line per file)
+- `cocoametal.h` — add `CMTheme {SYSTEM,LIGHT,DARK}` + `CM_OPT_THEME = 0x05` (host-acted).
+- `cocoametal.m` — `CMContext.theme`; set/get cases; persist via `cm__apply_persisted_
+  options`; weak no-op `cm__apply_theme_appkit` (mirrors `cm__set_fullscreen_appkit`);
+  a cheap `cm__note_present()` activity tick in `cm_present`.
+- NEW `cocoametal_statusbar.m` — the status bar view (brand + LED cluster), the LED
+  model, strong `cm__apply_theme_appkit` (sets `NSApp.appearance`), the present-driven
+  activity sampler. Keeps `window.m` from bloating.
+- `cocoametal_window.m` — replace the inline footer (lines ~253-263) with the new
+  builder; `FOOTER_H` unchanged.
+- `settings.json` + `cocoametal_settings_schema.m` — a `display.theme` popup →
+  `hostOption CM_OPT_THEME`; one line in the `CM_OPT_*` const map.
+- `cocoametal_shell.m` — a `View ▸ Theme` submenu (System/Light/Dark) with checkmarks.
+- `Makefile` — add `cocoametal_statusbar.m` to the `cocoametal-dylib` source list.
+
+### Trade-offs / uncertainties
+- The black Metal area (the guest framebuffer) is deliberately NOT themed — only the
+  app chrome + footer. "Matches the app" = chrome coherence, not recoloring AROS.
+- Does `NSApp.appearance` reflow live windows under our hand-pumped run loop (no
+  `[NSApp run]`)? The one doc-only unknown — verified by screenshotting each theme.
+
+### Things to discuss in the [LED+THEME] walkthrough
+- The DF0-disk-LED honesty call (Activity now, real disk later) — right boundary?
+- `NSApp.appearance` under the hand-pumped loop — did it reflow cleanly?
+- Is a host-acted `CM_OPT_THEME` the right home, vs a pure-defaults pref the status
+  bar reads itself (no ABI surface at all)?
+
+### [LED+THEME] DONE — what shipped + the decisions that landed
+Built + green: `make cocoametal-statusbar` → `[STATUS] PASS`, and the existing
+`[ABI]`/`[GSHELL]`/`[D1]`/`[D2t]`/`[D4D5]`/`[J5l fullscreen]`/`[LIVE]`/`[SET]` all
+re-ran green. CM_ABI_VERSION stayed **2**. New TU `cocoametal_statusbar.m`; the
+footer is now a native-material status bar (brand + PWR/ACT LEDs); theme is the
+host-acted `CM_OPT_THEME = 0x05`, surfaced in Settings (General ▸ Appearance) and
+View ▸ Theme, persisted in `cocoametal.theme`.
+
+Decisions that landed during the build:
+- **The Activity LED is labeled `ACT`, not `DF0`.** It's honestly a present-cadence
+  light (the host can't see AROS disk I/O), so calling it DF0 would misrepresent it.
+- **`presentCount` was already there** — the Activity LED samples it via a new
+  `cm__present_count` accessor on a 0.1s main-loop NSTimer (common modes), so
+  `cm_present` itself is untouched. The timer DOES fire under the hand-pumped run
+  loop (proven: activity peaks 1.00 on presents, decays to 0.00 when they stop).
+- **`NSApp.appearance` reflows live under the hand-pumped loop** — the one doc-only
+  uncertainty, now resolved: the [STATUS] test asserts Dark→DarkAqua, Light→Aqua,
+  System→nil on the live `NSApp` + window, no `[NSApp run]`. We also push the
+  appearance onto each window + `displayIfNeeded` to force an immediate redraw.
+- **Power LED needed a sentinel.** `reqPower`'s default 0 aliases `CM_POWER_REQUEST_
+  DOWN`, so a fresh context would read as "shutting down". Added `powerReq` (init -1
+  = running/green); amber on reset/request-down, red on force-down/quit.
+- **The footer is host chrome the oracle can't see** (it's outside the Metal view, so
+  `cm_readback`/`cm_capture_png` miss it). Verified the project way instead: [STATUS]
+  asserts the AppKit objects directly AND renders the CMLEDView to a PNG via
+  `cacheDisplayInRect` (no Screen-Recording/TCC) — proving the LEDs draw real
+  saturated green+amber pixels (`run/…/aros-statusbar-leds.png`).
+- **Link discipline:** `cocoametal_window.m` now calls `cm__build_status_bar`, which
+  only `cocoametal_statusbar.m` defines. The non-statusbar test builds (d1/d2t/input/
+  fullscreen/livedraw link window.m but not the status bar) link via a weak nil stub
+  in the AppKit-free `cocoametal.m` (`@class NSView;` keeps it AppKit-free) — the same
+  weak/strong split as `cm__install_shell`. All those targets re-ran green.
+
+Pre-existing, NOT mine: `cocoametal-hiddsim` FAILs on its *incremental* sub-rect
+upload→compose assert. My diff never touches `cm_upload_rect`/`cm_present`/
+`cm_readback`/the oracle, and `[ABI]` (full-frame oracle, exact) passes — it's the
+documented fbRing "requires full-frame uploads" tension in untouched code.
+
 ## Things to discuss in the walkthrough
 
 - Why QEMU-first instead of attacking Apple Silicon head-on (observability + the
