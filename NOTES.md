@@ -670,9 +670,22 @@ pump + drain are exactly what the poll needs).
     sys/types.h, which lives in the posixc include tree — so NOT -noposixc).
   - The headless emergency-CLI boot currently crashes in dos/LoadSeg (a pre-existing
     boot fragility, unrelated to bsdsocket); the windowed-boot CLI was used instead.
-- Remaining for the whole feature: the real timer-poll **WaitSelect** (LVO 21,
-  currently stubbed — Layer C) + the **resolver** (`gethostbyname`) → **[N6]** a real
-  outbound HTTP fetch.
+- **[WS] WaitSelect (LVO 21) + [N6] outbound internet — PROVEN LIVE.** Implemented
+  the real timer-poll WaitSelect (register fds with the pump, Delay-poll pump_drain +
+  the *sigmask bits, rebuild the fd_sets, rewrite *sigmask; AmiTCP fd_set/timeval
+  mirrored locally to dodge the net_types collision). Ran `nettest` on booted AROS:
+  - **`[WS] PASS: WaitSelect woke on read-ready, recv echoed the byte`**
+  - **`[N6] PASS: AROS fetched over the internet from 1.1.1.1 -> 'HTTP/1.1 301 Moved Permanently'`**
+  AROS made a real outbound TCP connection to 1.1.1.1:80 and did an HTTP/1.0 GET — on
+  Apple Silicon, through this bsdsocket.library. Proof:
+  docs/features/bsdsocket-net/waitselect-internet-proof.png.
+- **The feature is functionally complete** (per the spec's [N1]–[N6] scope): host
+  pump + errno + the AROS library; socket/bind/listen/accept/connect/send/recv/
+  WaitSelect all live; localhost round-trip AND real-internet fetch proven.
+- Still a stub by design (spec defers it): the **resolver** (`gethostbyname` and the
+  get*by* family). [N6] used a raw IP, sidestepping DNS. A darwin-safe resolver
+  (host getaddrinfo offloaded to a helper thread + timer-poll, like the socket park)
+  is the documented next enhancement.
 
 ### Trade-off / to discuss in the walkthrough
 - `errno_xlate.{c,h}` is authored + host-tested in `hosted/bsdsocket/`; the AROS
