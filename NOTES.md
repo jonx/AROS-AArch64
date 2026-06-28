@@ -646,9 +646,18 @@ pump + drain are exactly what the poll needs).
   `HostLibBase` field-vs-`#define` clash (→ field `hostlib`), missing
   `<sys/errno.h>`/`TICKS_PER_SEC`, two `*/`-in-comment terminations, and the
   AmiTCP-vs-libc `fd_set` collision (forward-declared in the stubbed WaitSelect).
-- Next: **boot** AROS with libbsdsockhost.dylib deployed + an AROS test client →
-  [N1] round-trip through the real LVO vectors; then the real WaitSelect (Layer C)
-  + the resolver → [N6] HTTP fetch.
+- **[N5a] library LOADS + INITIALISES live — PROVEN on booted AROS.** Deployed
+  libbsdsockhost.dylib to ~/lib, booted via aros-ctl, typed `version
+  bsdsocket.library full` at the shell → **`bsdsocket.library 3.0 (28-06-26)`**, no
+  trap. That single line proves the whole high-risk integration: OpenLibrary loaded
+  the genmodule module, `bsdsocket_Init` ran (hostlib → libSystem **and**
+  libbsdsockhost both HostLib_Open'd + interfaces resolved), **pump_start (the
+  kqueue pthread) came up under the threaded scheduler without crashing**, and
+  BSDSocket_OpenLib made a per-task base. Proof image:
+  docs/features/bsdsocket-net/library-load-proof.png.
+- Next: [N5b] a socket round-trip through the LVOs (connect/send/recv vs a localhost
+  echo server — needs a small AROS client + the bsdsocket linklib); then the real
+  WaitSelect (Layer C) + the resolver → [N6] HTTP fetch.
 
 ### Trade-off / to discuss in the walkthrough
 - `errno_xlate.{c,h}` is authored + host-tested in `hosted/bsdsocket/`; the AROS
