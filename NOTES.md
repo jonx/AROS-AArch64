@@ -618,6 +618,21 @@ graft last (ephemeral cross-build).
   `EOPNOTSUPP==45` — a genuine non-identity map. Rest of the BSD socket range is
   identity but asserted entry-by-entry. `make bsdsock-errno` ([NERR]) = 25/25.
 
+### Grounding finding — host-thread Signal is unsafe on darwin (reshapes the park)
+Before writing the AROS-side park I checked the proven darwin drivers, and the
+spec's core assumption (the kqueue pump thread raises `Signal(task, readySig)`) is
+**wrong for this port**. `cocoa_input.c:546` is explicit: a task woken from host
+interrupt/thread context runs in "supervisor mode" under the threaded scheduler and
+**trips every semaphore op**; both proven drivers (input ~50 Hz, the working
+clipboard ~5 Hz) **poll `timer.device` (`Delay()`)** and never `Signal` from a host
+thread. So the design changes: keep the kqueue pump (efficient in-kernel readiness +
+`pump_drain` stash), but the AROS-side WaitSelect/recv park is a **`Delay()` poll of
+`pump_drain`**, not `Wait` on a host-raised signal; the pump callback just sets an
+atomic flag. Documented in spec §R-DARWIN-WAKE, design.md "The bridge", and
+host-wake-pattern.md R-W2. This is "ground it, don't dream it" catching a
+load-bearing error before code — the host dylib already built is unaffected (the
+pump + drain are exactly what the poll needs).
+
 ### Status
 - [N1]–[N3] (pump round-trip / WaitSelect-style readiness / non-blocking park):
   PASS (pre-existing spike, re-verified 9/9).
