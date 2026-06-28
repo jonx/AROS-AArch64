@@ -390,6 +390,7 @@ bsdsock-dylib: | build
 		-install_name @rpath/libbsdsockhost.dylib \
 		-exported_symbols_list hosted/bsdsocket/bsdsock.exports \
 		hosted/bsdsocket/bsdsock_pump.c hosted/bsdsocket/bsdsock_shim.c \
+		hosted/bsdsocket/bsdsock_resolve.c \
 		-o $(BSDSOCK_DYLIB)
 	codesign -s - -f $(BSDSOCK_DYLIB)
 	@echo ">> built $(BSDSOCK_DYLIB) (exported symbols:)"
