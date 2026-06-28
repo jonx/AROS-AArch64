@@ -638,8 +638,17 @@ pump + drain are exactly what the poll needs).
   PASS (pre-existing spike, re-verified 9/9).
 - [NABI] dlopen ABI + the `ps_create_cb` wake seam through the boundary: PASS.
 - [N4]/[NERR] errno translation table: PASS 25/25.
-- Next: author `arch/all-unix/bsdsocket/` (the real LVO library) → [N5] graft,
-  then [N6] real fetch. Build is the ephemeral AROS crosstools tree.
+- **[N5] library graft — BUILDS.** `arch/all-unix/bsdsocket/` (14 files: genmodule
+  conf, per-task SocketBase, hostlib wiring under Disable(), the data-path LVOs with
+  the timer-poll park, sockopt/misc, stubs) compiles + links end-to-end against the
+  darwin-aarch64 crosstools → a 34KB `AROS/Libs/bsdsocket.library`. Committed on
+  `aarch64-darwin-graft` in ../aros-upstream. Build-bugs found+fixed along the way:
+  `HostLibBase` field-vs-`#define` clash (→ field `hostlib`), missing
+  `<sys/errno.h>`/`TICKS_PER_SEC`, two `*/`-in-comment terminations, and the
+  AmiTCP-vs-libc `fd_set` collision (forward-declared in the stubbed WaitSelect).
+- Next: **boot** AROS with libbsdsockhost.dylib deployed + an AROS test client →
+  [N1] round-trip through the real LVO vectors; then the real WaitSelect (Layer C)
+  + the resolver → [N6] HTTP fetch.
 
 ### Trade-off / to discuss in the walkthrough
 - `errno_xlate.{c,h}` is authored + host-tested in `hosted/bsdsocket/`; the AROS
