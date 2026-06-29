@@ -795,3 +795,63 @@ documented fbRing "requires full-frame uploads" tension in untouched code.
 - Where this plugs into real AROS: M2–M8 mirror what AROS's `exec` + the AArch64
   `kernel.resource` will need (vectors, MMU, context switch). Phase 1 is that
   backend in miniature, proven on QEMU, before grafting onto the AROS tree.
+
+## 2026-06-28 — [FF0] native libavutil on AROS (PLAN, under /slow-ai)
+
+Native ffmpeg port, first milestone: build **libavutil only** and prove it with one
+AROS `C:` smoke (`av_version_info()` + `av_malloc`/`av_free`). A *native software
+port* (ARM code built for AROS by the crosstools), the sibling of the Rust port.
+Design: `docs/features/ffmpeg-native/README.md`.
+
+### Gate 1 — reference summary (verified before designing)
+A libc-heavy C probe (`stdio`/`stdlib`/`string`/`math`/`stdint`/`inttypes`)
+compiled, linked, and **ran on booted AROS** (`sqrt2=1.414214 lrint=4`) — so
+`printf` incl. `%f` floats (formerly broken), `malloc`/`free`, libm, `%PRId64` all
+work. The toolchain entry point is the **AROS-patched clang driver**
+(`tools/crosstools/bin/clang --target=aarch64-unknown-aros`): it auto-applies the
+AROS spec includes (so the `cc_include` host-SDK pollution that bit the Rust glue is
+avoided) and uses `collect-aros` as linker. Three AROS-specific flags, each grounded:
+- `-mcmodel=large` → GOT-free `MOVW_UABS_*` relocs (LoadSeg-compatible; same lesson
+  as Rust). Default small model risks a GOT the loader has no support for.
+- `-Wl,--allow-multiple-definition` → the `AROS_LIBREQ` duplicate marker (UPSTREAM
+  -NOTES item 18), link-only.
+- `COMPILER_PATH=<tree>/tools:<tree>/tools/crosstools/bin` → driver finds
+  `collect-aros`, and `collect-aros` finds `ld`.
+API confirmed against Homebrew ffmpeg 8.1.2 headers: `avutil_version()`,
+`av_version_info()`, `av_malloc(size_t)`, `av_free`.
+
+### Gate 2 — change-set (one line each)
+NEW `hosted/ffmpeg/` (mirrors `hosted/rust/`):
+- `aros-cc.sh` — `--cc` wrapper: the AROS clang driver + the three flags. ffmpeg's
+  `./configure --cc=…` points here; reusable for any configure-style port.
+- `build.sh` — fetch pinned ffmpeg into gitignored `build/`, `configure` (cross,
+  `--disable-everything`, libavutil only, `--disable-asm`), `make libavutil`.
+- `ff0_main.c` — the AROS C: smoke (version string + non-null alloc → PASS/FAIL).
+- `README.md` — provenance + status + the verified recipe.
+- `graft/ffmpeg-smoke` — end-to-end (build → link → deploy → boot → assert), the
+  `rust-smoke` sibling.
+
+### Gate 3 — data flow
+`build.sh` fetches ffmpeg n8.1.x → `configure --enable-cross-compile --arch=aarch64
+--target-os=none --cc=aros-cc.sh --ar/--nm/--ranlib=<crosstools llvm-*>
+--disable-everything --disable-asm --enable-static` (configure runs compile/**link**
+probes through the wrapper) → `make libavutil/libavutil.a` → `aros-cc.sh` links
+`ff0_main.c` + `libavutil.a` into an ET_REL `C:` command → `ffmpeg-smoke` boots AROS
+and asserts the printed version + non-null alloc.
+
+### Gate 4 — trade-offs / uncertainties
+- **The real FF0 risk: ffmpeg's `configure` link-probes on a non-hosted target.** One
+  wrongly-failing probe could misdetect/abort. Mitigation: `--disable-everything`
+  shrinks the probe set; read the actual `configure` after fetch; pass explicit
+  `--disable-*` if needed.
+- **`--target-os=none`** (no `aros` os in ffmpeg) for FF0; a real `aros` arm is a
+  later upstreamable patch.
+- **Version pinned n8.1.x** (matches reference headers; FF0 is version-insensitive).
+- **Source fetched, not vendored** (LGPL/GPL; built, not modified/committed).
+- **Out of scope (boundary):** codecs (FF1), threading (FF2), NEON (FF3).
+
+### Things to discuss in the [FF0] walkthrough
+- Did `--disable-everything` keep configure's probe set small enough that none
+  misdetect on a non-hosted target?
+- The `aros-cc.sh` wrapper as a reusable "configure-style port" toolchain entry —
+  right abstraction for the later ffmpeg codecs and other autotools ports?
