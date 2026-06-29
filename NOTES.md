@@ -855,3 +855,79 @@ and asserts the printed version + non-null alloc.
   misdetect on a non-hosted target?
 - The `aros-cc.sh` wrapper as a reusable "configure-style port" toolchain entry —
   right abstraction for the later ffmpeg codecs and other autotools ports?
+
+### [FF0] DONE: native libavutil runs on AROS (PROVEN LIVE 2026-06-30)
+
+`FF0Smoke` on booted AROS (`/tmp/arosbuild`): `libavutil 60.26.102 version_info=8.1.2`,
+`av_malloc(4096) ok writable`, `av_mallocz(4096) ok zeroed`, `FFMPEG-AROS: [FF0] ALL
+PASS`. Proof screenshot `run/darwin-aarch64/ff0-on-aros.png`.
+
+Decisions / findings that landed during the build:
+- **The "mistake" fix was `-D_GNU_SOURCE`, not a shim.** The four functions
+  (`fdopen`/`mkstemp`/`tempnam`/`posix_memalign`) were always in the posixc headers,
+  behind `_GNU_SOURCE`/`_XOPEN_SOURCE`; `--target-os=none` left the flag off. Nick
+  (kalamatee) diagnosed it. Dropped `aros-compat.h`, added `--extra-cflags=-D_GNU_SOURCE`.
+- **Toolchain is split across trees (cost an hour, now in `[[aros-build-tree-layout]]`).**
+  Canonical SDK at `/tmp/arosbuild`, AROS-patched crosstools at `/tmp/aros-crosstools`.
+  Old `/private/tmp/claude-*` scratchpad copies get OS-GC'd half-empty, so discovery
+  must require a COMPLETE SDK (posixc/stdio.h + libmui.a + collect-aros), not newest
+  clang. `aros-cc.sh` rewired: the patched clang's spec bakes a stale dir, so it uses
+  explicit `-isystem` for the SDK includes and `-nostartfiles -nodefaultlibs` + explicit
+  AROS startup/lib group at link.
+- **`/tmp/arosbuild`'s distribution is MISSING `Libs/stdcio.library`** (it has the static
+  `libstdcio.a` + headers, and posixc/stdc/dos/intuition runtime libs, but not the
+  stdcio runtime module). FF0Smoke needs `StdCIOBase` via libavutil/posixc (can't be
+  dropped: `-lstdcio` removal leaves `__aros_getbase_StdCIOBase` undefined). Stopgap:
+  copied `stdcio.library` from a7d73cfa into `/tmp/arosbuild/Libs`. The real fix is the
+  build installing it. **TODO for the tree owner: build/install stdcio.library.**
+- **Run method matters:** `graft/aros-ctl run` stages a known-good console boot; type +
+  `shot`. Do NOT use `bench-run`'s custom Startup-Sequence on `/tmp/arosbuild` (it
+  cold-start-halts at dos.library). Boots crash intermittently (known app bug): retry.
+
+## RESUME 2026-06-30 (post-compaction handoff)
+
+**Objectives next session, in order:**
+1. **Quick wins first.** (a) Re-verify rust on `/tmp/arosbuild`: build RustHello
+   (`hosted/rust/build.sh --build` + `aros-build.sh`), deploy to `/tmp/arosbuild`'s
+   `AROS/C`, run via `aros-ctl` (below). (b) Switch `graft/ffmpeg-smoke` +
+   `graft/rust-smoke` off `bench-run` to the `aros-ctl run` + `MacRW:` text-capture
+   method (bench-run's custom Startup-Sequence cold-start-halts on `/tmp/arosbuild`).
+2. **The big one: merge `origin/master` into the graft + full rebuild + boot-verify.**
+
+**Merge facts:** graft `../aros-upstream` branch `aarch64-darwin-graft` HEAD `a3253c3d`;
+`origin/master` `58b02588` (28-commit delta, mostly `stdc`/`posixc` conformance by
+kalamatee + WiFi/raspi/AROSTCP by bsek); merge-base `5c78c7d5`. The known `__vcformat`
+conflict is GONE (I reverted `__vcformat.c` to original-gated, so Nick's `fb49cfa4`
+should merge clean). Watch for other conflicts in `stdc`/`posixc`/`config/make.tmpl`.
+Reference worktree (detached at master) at `../aros-upstream-master`; remove with
+`git -C ../aros-upstream worktree remove ../aros-upstream-master`.
+
+**Build a module (or full):**
+```sh
+cd /tmp/arosbuild
+export PATH="/tmp/graft-tools:/tmp/aros-crosstools/bin:/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:$PATH"
+make compiler-stdc          # or compiler-stdcio, or a full `make`
+```
+`/tmp/graft-tools/objcopy` -> `llvm-objcopy` (macOS lacks objcopy). Toolchain split:
+SDK `/tmp/arosbuild`, crosstools `/tmp/aros-crosstools` (see [[aros-build-tree-layout]]).
+
+**Run a C: command + screenshot (the method that works):**
+```sh
+graft/aros-ctl run            # known-good console boot of /tmp/arosbuild
+graft/aros-ctl type "FFProbe"; graft/aros-ctl enter
+graft/aros-ctl shot run/darwin-aarch64/x.png   # then read the PNG
+graft/aros-ctl stop
+```
+Boots crash intermittently (known app bug): retry a couple of times. NOT my code.
+
+**Done + verified this session (don't redo):** ffmpeg `[FF0]` PROVEN LIVE
+(`hosted/ffmpeg/`, libavutil 60.26.102; proof `run/darwin-aarch64/proofs/ff0-on-aros-20260630.png`);
+`-D_GNU_SOURCE` replaced the compat shim; toolchain/tree-discovery fixed; `stdcio.library`
+built+installed into `/tmp/arosbuild`; `__vcformat` link-layer fix committed (`a3253c3d`,
+printf `%f` verified). `hosted/ffmpeg/*` changes in the aros-aarch64 repo are UNCOMMITTED
+(on disk, safe) — commit when ready.
+
+**Caveat to close in the rebuild:** the `__vcformat`/LDFLAGS fix was verified on one
+disk program + the existing boot, NOT a full-tree rebuild. The merge's full rebuild is
+also the confirmation that no early disk module regresses from dropping `-lstdc.static`
+from the general LDFLAGS.
