@@ -6,6 +6,29 @@ the eventual hosted target. The non-negotiable constraint is that an AI agent
 must be able to run the *whole* loop unattended — build, boot, observe, judge —
 with no manual step in the middle. If a step needs a human, it doesn't scale.
 
+## Finding: `x18` must be reserved on the hosted-Darwin aarch64 target (2026-06-30)
+
+`x18` is the AAPCS64 **platform register, reserved on Darwin** (the OS may use it;
+it is not callee-saved and not guaranteed preserved across the signal machinery).
+AROS-hosted runs as a Darwin process and **preempts tasks via signals**, so a
+value left live in `x18` can be clobbered across a preemption. But nothing in the
+aarch64 toolchain reserves it: the `aros` clang target doesn't know about the
+host ABI, and neither the crosstools nor `aros-cc.sh` passed `-ffixed-x18`. So the
+compiler is free to allocate `x18` for a long-lived value — and then a mid-stream
+preemption wipes it.
+
+This surfaced as the **ffmpeg h264 crash**: clang put the h264 GetBitContext
+buffer pointer in `x18`; a preemption mid-decode set it to NULL → SIGSEGV reading
+`[x18 + idx]`. Found with the new fault-address trap dump (`fault addr=0x268`,
+`ldr w2,[x18,x2]`, `x18=0`). Fixed for ffmpeg with `-ffixed-x18` in `aros-cc.sh`.
+
+**Implication / TODO:** the OS is built without `-ffixed-x18` too, so it carries
+the same latent bug — it just rarely keeps a live value in `x18` across a
+preemption. This is a prime suspect for the **intermittent hosted-boot stall**.
+The proper fix is to reserve `x18` (or preserve it across context switch + signal
+return) across the whole aarch64-darwin toolchain/build, then re-test boot
+stability.
+
 ## Architecture at a glance
 
 - **Two independent hard problems, never worked at once.** (1) The AArch64 CPU
