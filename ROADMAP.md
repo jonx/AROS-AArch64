@@ -2,7 +2,8 @@
 
 The big-picture arc, so the plan doesn't live only in a chat log. Phase 1 has its
 own detailed milestone checklist in [PHASE1.md](PHASE1.md); this file is the map
-above it and the rationale for the ordering.
+above it and the rationale for the ordering. Granular cross-cutting tasks (the
+"we'll get to it" backlog) live in [TODO.md](TODO.md).
 
 ## The one rule that shapes everything
 
