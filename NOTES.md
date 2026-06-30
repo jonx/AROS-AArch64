@@ -11,7 +11,7 @@ with no manual step in the middle. If a step needs a human, it doesn't scale.
 `x18` is the AAPCS64 **platform register, reserved on Darwin**. On Apple Silicon
 the macOS kernel owns it and **zeroes `x18` in the signal context** it hands a
 handler. Proven with a 30-line host probe
-([`x18probe.c`](docs/features/debug-tools/x18probe.c)): put a sentinel in `x18`,
+([`hosted/x18probe/`](hosted/x18probe/README.md)): put a sentinel in `x18`,
 let a timer signal fire while the program holds it, read `x18` back from the signal
 frame → `0x0000000000000000`, every run. AROS-hosted preempts tasks via signals,
 so any value left live in `x18` is gone the moment a preemption fires.
