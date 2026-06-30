@@ -8,26 +8,40 @@ with no manual step in the middle. If a step needs a human, it doesn't scale.
 
 ## Finding: `x18` must be reserved on the hosted-Darwin aarch64 target (2026-06-30)
 
-`x18` is the AAPCS64 **platform register, reserved on Darwin** (the OS may use it;
-it is not callee-saved and not guaranteed preserved across the signal machinery).
-AROS-hosted runs as a Darwin process and **preempts tasks via signals**, so a
-value left live in `x18` can be clobbered across a preemption. But nothing in the
-aarch64 toolchain reserves it: the `aros` clang target doesn't know about the
-host ABI, and neither the crosstools nor `aros-cc.sh` passed `-ffixed-x18`. So the
-compiler is free to allocate `x18` for a long-lived value — and then a mid-stream
-preemption wipes it.
+`x18` is the AAPCS64 **platform register, reserved on Darwin**. On Apple Silicon
+the macOS kernel owns it and **zeroes `x18` in the signal context** it hands a
+handler. Proven with a 30-line host probe
+([`x18probe.c`](docs/features/debug-tools/x18probe.c)): put a sentinel in `x18`,
+let a timer signal fire while the program holds it, read `x18` back from the signal
+frame → `0x0000000000000000`, every run. AROS-hosted preempts tasks via signals,
+so any value left live in `x18` is gone the moment a preemption fires.
+
+The AROS side is **not** at fault: the darwin `SAVEREGS`/`RESTOREREGS` macros
+(`arch/all-darwin/kernel/cpu_aarch64.h`) already copy the full `x0..x28` block,
+`x18` included — they just faithfully copy the zero macOS already wrote. Because
+the switch path runs the register set through that frame, even a same-task
+preemption writes the zero back into `x18`. So the hosted "save and restore" that
+works on Linux/bare-metal (where `x18` is an ordinary, honestly-preserved
+register) **cannot** work on macOS: the value is destroyed at the kernel boundary,
+before any AROS code runs.
 
 This surfaced as the **ffmpeg h264 crash**: clang put the h264 GetBitContext
-buffer pointer in `x18`; a preemption mid-decode set it to NULL → SIGSEGV reading
-`[x18 + idx]`. Found with the new fault-address trap dump (`fault addr=0x268`,
-`ldr w2,[x18,x2]`, `x18=0`). Fixed for ffmpeg with `-ffixed-x18` in `aros-cc.sh`.
+buffer pointer in `x18`; a preemption mid-decode zeroed it → SIGSEGV reading
+`[x18 + idx]`. Found with the fault-address trap dump (`fault addr=0x268`,
+`ldr w2,[x18,x2]`, `x18=0`). Fixed with `-ffixed-x18` in `aros-cc.sh`.
 
-**Implication / TODO:** the OS is built without `-ffixed-x18` too, so it carries
-the same latent bug — it just rarely keeps a live value in `x18` across a
-preemption. This is a prime suspect for the **intermittent hosted-boot stall**.
-The proper fix is to reserve `x18` (or preserve it across context switch + signal
-return) across the whole aarch64-darwin toolchain/build, then re-test boot
-stability.
+**Conclusion.** The fix is to **reserve `x18` across the aarch64-AROS ABI**
+(toolchain + build), not to "fix the host" — macOS makes host preservation
+impossible. Reserving it costs one register on Linux/bare-metal (harmless) and is
+required on darwin, and it keeps a single portable aarch64-AROS binary set that
+also runs on the macOS host. `-ffixed-x18` is now in `config/make.cfg.in` (OS
+build) and `aros-cc.sh` (ffmpeg); the crosstools default and any objects built
+before the flag still need a rebuild to be fully covered.
+
+> Raised with kalamatee (Nick Andrews), who noted the hosted path saves/restores
+> `x18` and that making it usable is the host's job, not the binary's. Both true;
+> the probe shows macOS removes that option on Apple Silicon. Re-run `x18probe.c`
+> to re-check on a future macOS.
 
 ## Architecture at a glance
 
