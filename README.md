@@ -63,7 +63,7 @@ to one more surface, and every one must verify in the unattended loop.
 - **A live Cocoa/Metal window** ([cocoa-metal-display](docs/features/cocoa-metal-display/design.md)) —
   the AROS console renders in a Mac window (Apple-native AppKit + Metal) and the
   keyboard drives the shell. Launch with [`graft/run-window.sh`](graft/run-window.sh).
-- **Daedalos — a first-class Mac app** ([host-app-shell](docs/features/host-app-shell/design.md)) —
+- **Macaros — a first-class Mac app** ([host-app-shell](docs/features/host-app-shell/design.md)) —
   menu bar, About, custom icon, and schema-driven Settings, packaged as a
   double-clickable `.app` by [`graft/make-aros-app.sh`](graft/make-aros-app.sh).
 - **Clipboard bridge** ([clipboard-bridge](docs/features/clipboard-bridge/README.md)) —
@@ -85,7 +85,7 @@ brew install qemu llvm lld           # clang + ld.lld + lldb + qemu-system-aarch
 # --- The hosted Mac app (Apple Silicon) ---
 graft/build-darwin-aarch64.sh        # build hosted AROS for darwin-aarch64 (see GRAFT.md)
 graft/run-window.sh                  # boot AROS in a live Cocoa/Metal window; type at the shell
-graft/make-aros-app.sh               # package it as a double-clickable Daedalos.app
+graft/make-aros-app.sh               # package it as a double-clickable Macaros.app
 graft/aros-ctl run                   # …or drive the window headlessly (type/click/shot)
 
 # --- 68k JIT ---
@@ -164,7 +164,7 @@ exec I/O* — and all must verify in the unattended loop.
 | Feature | One-line | Docs | Status |
 |---------|----------|------|--------|
 | Cocoa/Metal display | a live macOS window (AppKit + Metal) for the AROS desktop | [design](docs/features/cocoa-metal-display/design.md) · [spec](docs/features/cocoa-metal-display/spec.md) · [interface](docs/features/cocoa-metal-display/INTERFACE.md) | **built** |
-| Host app shell (Daedalos) | menu bar, About, icon, two-tier Settings — a real Mac app | [design](docs/features/host-app-shell/design.md) · [spec](docs/features/host-app-shell/spec.md) | **built** |
+| Host app shell (Macaros) | menu bar, About, icon, two-tier Settings — a real Mac app | [design](docs/features/host-app-shell/design.md) · [spec](docs/features/host-app-shell/spec.md) | **built** |
 | Clipboard bridge | two-way copy/paste, `NSPasteboard` ↔ `clipboard.device` | [README](docs/features/clipboard-bridge/README.md) · [design](docs/features/clipboard-bridge/design.md) · [spec](docs/features/clipboard-bridge/spec.md) | **built** |
 | Control harness (`aros-ctl`) | puppet the windowed AROS headlessly, inside the loop | [README](docs/features/control-harness/README.md) · [design](docs/features/control-harness/design.md) · [spec](docs/features/control-harness/spec.md) | **built** |
 | Host volume | a real Mac folder mounted as an AROS volume, drag-from-Finder | [README](docs/features/host-volume/README.md) · [design](docs/features/host-volume/design.md) · [spec](docs/features/host-volume/spec.md) | foundation landed |
@@ -211,7 +211,7 @@ aros-aarch64/                     ← THIS repo (the graft / host layer)
 ├── boot/        Act-1 bare-metal AArch64 kernel: start.S, mmu.c, irq.c, task.c, fb.c …
 ├── harness/     the unattended loop: run.sh, run-hosted.sh, qmp.py, lldb-dump.sh, test.sh
 ├── hosted/      Act-2 spikes (host.c, preempt.c, abishim.*, exec.c …) + the real host shims:
-│   ├── cocoametal/   the Cocoa/Metal display + Daedalos app + control FIFO (dylib)
+│   ├── cocoametal/   the Cocoa/Metal display + Macaros app + control FIFO (dylib)
 │   ├── clipboard/    the NSPasteboard ↔ clipboard.device bridge (libpasteboard.dylib)
 │   ├── hostvolume/   the Mac-folder-as-AROS-volume handler
 │   ├── coreaudio/    CoreAudio AHI sub-driver shim          (see also hostshell/, libaros/)

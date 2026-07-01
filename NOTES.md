@@ -750,7 +750,7 @@ pump + drain are exactly what the poll needs).
 
 ## 2026-06-28 — [LED+THEME] PLAN: Amiga status-bar LEDs + a Dark/Light/System theme
 
-Host-layer feature for the Daedalos window: turn the footer into a proper **status
+Host-layer feature for the Macaros window: turn the footer into a proper **status
 bar** with Amiga-style **Power + Activity LEDs**, and add a **theme switch
 (Dark / Light / System)** so the whole app — title bar, menus, Settings, and the
 footer — reads as one coherent appearance. Worked under /slow-ai (gates first).
