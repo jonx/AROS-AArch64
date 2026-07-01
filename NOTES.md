@@ -38,6 +38,17 @@ also runs on the macOS host. `-ffixed-x18` is now in `config/make.cfg.in` (OS
 build) and `aros-cc.sh` (ffmpeg); the crosstools default and any objects built
 before the flag still need a rebuild to be fully covered.
 
+**Rebuild done for the Rust-runtime path (2026-07-01).** The flag was committed but
+the deployed modules predated it (`posixc` alone had 108 x18 uses), so `time`/threads
+SIGBUS'd from Rust. Force-recompiling `posixc`/`stdc`/`exec`/`kernel`/`timer`/`dos`/
+`emul-handler` with the flag dropped each to ~2 x18 uses (compiler-rt soft-float
+residual, not in hot integer paths). After that, Rust `std::time` and `std::thread`
+both work, verified live. The rest of the desktop (Wanderer, C: commands, ffmpeg
+datatypes) still has x18-dirty objects and can be recompiled the same way when its
+latent faults matter — mixing x18/non-x18 modules is safe (no ABI change). To force a
+module's recompile: delete its `gen/**/*.o` (make.cfg alone doesn't invalidate them),
+then build its metatarget.
+
 > Raised with kalamatee (Nick Andrews), who noted the hosted path saves/restores
 > `x18` and that making it usable is the host's job, not the binary's. Both true;
 > the probe shows macOS removes that option on Apple Silicon. Re-run `x18probe.c`
