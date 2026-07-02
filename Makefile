@@ -740,6 +740,7 @@ hosted-jit68k-j5d: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c hosted/jit68k/j5c_ra.c \
@@ -776,6 +777,7 @@ hosted-jit68k-j5e: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c hosted/jit68k/j5c_ra.c \
@@ -819,6 +821,7 @@ hosted-jit68k-j5f: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c hosted/jit68k/j5c_ra.c \
@@ -867,6 +870,7 @@ hosted-jit68k-j5g: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
@@ -909,6 +913,7 @@ hosted-jit68k-j5h: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
@@ -947,6 +952,7 @@ hosted-jit68k-j5i: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
@@ -990,6 +996,7 @@ hosted-jit68k-j5j: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
@@ -1025,6 +1032,7 @@ hosted-jit68k-j5k: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
@@ -1077,6 +1085,7 @@ hosted-jit68k-j5l: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
@@ -1122,6 +1131,7 @@ hosted-jit68k-apps: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k/emu68 -Ihosted/jit68k \
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
 		hosted/jit68k/apps68k/runner.c hosted/jit68k/apps68k/stublib.c \
@@ -1164,6 +1174,7 @@ hosted-jit68k-j5m: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k/emu68 -Ihosted/jit68k \
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
 		hosted/jit68k/j5m_test.c hosted/jit68k/apps68k/stublib.c \
@@ -1215,6 +1226,7 @@ hosted-jit68k-j5n: | build
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
 		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
 		-DJ5N_GIT_COMMIT="\"$$(git rev-parse HEAD 2>/dev/null || echo unknown)\"" \
@@ -1260,6 +1272,7 @@ hosted-jit68k-j5o: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1310,6 +1323,7 @@ hosted-jit68k-j5p: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1355,6 +1369,7 @@ hosted-jit68k-j5q: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1405,6 +1420,7 @@ hosted-jit68k-j5r: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1440,6 +1456,7 @@ hosted-jit68k-j5s: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE4.c build/emu68-darwin/M68k_LINE4.c --movem-sandbox
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1489,6 +1506,7 @@ hosted-jit68k-j5t: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_MOVE.c build/emu68-darwin/M68k_MOVE.c --move-no-merge
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1530,6 +1548,7 @@ run68k: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_MOVE.c build/emu68-darwin/M68k_MOVE.c --move-no-merge
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
 	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
@@ -1577,6 +1596,36 @@ hosted-jit68k-args: run68k
 	@echo "[args] PASS: run68k delivered the AmigaDOS CLI args (A0=string, D0=len incl newline)"
 	@echo "[args]       into the 68k program; crt0_args.s split them into argv[]; the no-args"
 	@echo "[args]       case and the backward-compat corpus (mandel) are unaffected."
+
+# [rust68k] REAL RUST on the 68k JIT: run the COMMITTED no_std core+alloc corpus
+# binaries (hosted/jit68k/rust68k/bin, rebuilt from src by rust68k/tools/build-rust68k.sh)
+# under BOTH engines — the JIT and the independent reference interpreter (--interp) —
+# and assert the exits agree with the expected values. vecsum_inclusive is the CCR
+# CANARY: its correct answer is 91, but the open upstream LLVM M68k bug (MOVE clobbers
+# CCR — rust68k/UPSTREAM-LLVM-CCR-BUG.md) makes it return 1 on any correct 68k; when
+# this row starts failing with 91/91, the upstream fix has landed — flip the expectation.
+hosted-jit68k-rust: run68k
+	@pass=1; \
+	printf 'fib.exe 55\nallocprobe.exe 10\nvecsum.exe 91\nvecsum_inclusive.exe 1\n' | \
+	while read exe want; do \
+	  build/run68k          hosted/jit68k/rust68k/bin/$$exe >/dev/null 2>&1; j=$$?; \
+	  build/run68k --interp hosted/jit68k/rust68k/bin/$$exe >/dev/null 2>&1; i=$$?; \
+	  if [ "$$j" = "$$want" ] && [ "$$i" = "$$want" ]; then \
+	    echo "  $$exe: jit=$$j interp=$$i (want $$want) ok"; \
+	  else \
+	    echo "  $$exe: jit=$$j interp=$$i (want $$want) MISMATCH"; exit 1; \
+	  fi; \
+	done || { echo "[rust68k] FAIL"; exit 1; }
+	@out="$$(build/run68k hosted/jit68k/rust68k/bin/hello.exe 2>/dev/null)"; \
+	outi="$$(build/run68k --interp hosted/jit68k/rust68k/bin/hello.exe 2>/dev/null)"; \
+	exp="$$(printf 'Hello from Rust on 68k AROS!\nfib(10) = 55\n6 * 7 = 42\n')"; \
+	if [ "$$out" = "$$exp" ] && [ "$$outi" = "$$exp" ]; then \
+	  echo "  hello.exe: PutChar stream byte-exact under both engines"; \
+	else \
+	  echo "  hello.exe: OUTPUT MISMATCH"; echo "[rust68k] FAIL"; exit 1; \
+	fi
+	@echo "[rust68k] PASS: Rust (no_std core+alloc, m68k-unknown-none-elf) hunk binaries ran"
+	@echo "[rust68k]       byte-agreeing through BOTH engines (JIT + interpreter), incl. the CCR canary"
 
 # Phase-2 regression matrix: build + run every hosted spike, assert each marker.
 hosted-test:
