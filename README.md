@@ -293,4 +293,12 @@ vendored, isolated files under a documented license boundary — it is not
 clean-room, and its files are not AROS-licensed. This is the repo's only
 third-party code; see **[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)** and
 [hosted/jit68k/emu68/NOTICE](hosted/jit68k/emu68/NOTICE).
+
+## Status & contributing
+
+Experimental and actively developed, as a hobby project. Expect rough edges,
+and read [SECURITY.md](SECURITY.md) before pointing it at anything sensitive.
+Issues and small, focused PRs are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md). Release notes live in
+[CHANGELOG.md](CHANGELOG.md).
 </content>

@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  run68k:
+    name: build run68k + run the 68k corpus samples
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the 68k JIT
+        run: make run68k
+      - name: Run 68k samples (JIT + interpreter oracle)
+        # These programs return their computed result as the exit code.
+        run: |
+          set -x
+          build/run68k hosted/jit68k/apps68k/bin/mandel.exe;  test $? -eq 0
+          build/run68k hosted/jit68k/apps68k/bin/bubsort.exe; test $? -eq 245
+          build/run68k hosted/jit68k/apps68k/bin/sumsq.exe;   test $? -eq 55
