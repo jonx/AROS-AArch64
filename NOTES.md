@@ -917,7 +917,7 @@ Decisions / findings that landed during the build:
   (kalamatee) diagnosed it. Dropped `aros-compat.h`, added `--extra-cflags=-D_GNU_SOURCE`.
 - **Toolchain is split across trees (cost an hour, now in `[[aros-build-tree-layout]]`).**
   Canonical SDK at `/tmp/arosbuild`, AROS-patched crosstools at `/tmp/aros-crosstools`.
-  Old `/private/tmp/claude-*` scratchpad copies get OS-GC'd half-empty, so discovery
+  Old `/private/tmp` session-scratchpad copies get OS-GC'd half-empty, so discovery
   must require a COMPLETE SDK (posixc/stdio.h + libmui.a + collect-aros), not newest
   clang. `aros-cc.sh` rewired: the patched clang's spec bakes a stale dir, so it uses
   explicit `-isystem` for the SDK includes and `-nostartfiles -nodefaultlibs` + explicit
