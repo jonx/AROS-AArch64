@@ -100,7 +100,7 @@ bring-up there's no stack trace — markers are the agent's ground-truth "did it
 get further than last time," and one-per-milestone lets it localize a regression.
 
 ### Grounded: the state of AArch64 in AROS upstream (and what we mirror)
-Checked the AROS tree (`/Users/user/Source/aros-upstream`, shallow clone) before
+Checked the AROS tree (`../aros-upstream`, shallow clone) before
 writing native code. Findings: `arch/aarch64-all` is **header-only scaffolding**
 (8 files / 452 lines) configured as a *hosted-Linux* flavour
 (`aros_flavour="emulation"`, `aarch64-linux-gnueabihf-`) that was never finished —

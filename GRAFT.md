@@ -3,7 +3,7 @@
 Phase 2's hosted spikes (H1–H8) de-risked the entire *host-facing* surface of a
 hosted AROS on Apple Silicon. This file is the bridge: exactly where each proven
 idea plugs into the real AROS source tree, grounded against
-`/Users/user/Source/aros-upstream` (file paths + line numbers below). It turns "the
+`../aros-upstream` (file paths + line numbers below). It turns "the
 mountain" from a gesture into a punch list.
 
 The honest headline: **the graft is integration, not spiking** — and as of
@@ -174,8 +174,9 @@ in order:
 4. **AROS runs:** `exec.library` + `kernel.resource` + `hostlib.resource` initialise
    with valid `SysBase`/`KernelBase`; a SIGSEGV is caught via our `cpu_aarch64.h`
    signal glue and AROS prints its **AArch64 register dump** + native
-   **Guru-Meditation alert**. It then halts at a cold-start trap (a 3-module
-   kickstart has no `dos.library` to hand off to).
+   **Guru-Meditation alert**. Boot now proceeds through the full boot module set
+   and `dos.library`, mounts SYS:, runs the AmigaDOS Shell, and renders a full
+   Wanderer desktop in a live Cocoa/Metal window (see the root README).
 
 Run it yourself: **`~/aros-darwin/run.sh`** (a self-contained signed bundle). The
 upstream-worthy friction along the way is logged in `graft/UPSTREAM-NOTES.md`
@@ -185,8 +186,8 @@ upstream-worthy friction along the way is logged in `graft/UPSTREAM-NOTES.md`
 
 The hard, novel work — the toolchain, the AArch64 CPU/ABI glue, the W^X / relocation
 / static-runtime hurdles unique to hosting AROS on Apple Silicon — is *done and
-demonstrated*: AROS executes. What remains is comparatively conventional AROS
-bring-up: get past the cold-start trap, add `dos.library` and the boot module set,
-and walk the boot sequence to a shell — plus turning the build-dir/by-hand workarounds
-(`libkrnmem.a` mmake rule, the `-mcmodel=large`/`-D__arm64__` flags' proper home in
-`configure`) into clean, upstreamable changes.
+demonstrated*: AROS executes. The conventional AROS bring-up that followed is also
+done: `dos.library` and the boot module set are up and the boot sequence walks to a
+shell and a full Wanderer desktop (see the root README). What remains is turning the
+build-dir/by-hand workarounds (`libkrnmem.a` mmake rule, the `-mcmodel=large`/`-D__arm64__`
+flags' proper home in `configure`) into clean, upstreamable changes.

@@ -6,8 +6,14 @@ reimplementation — to 64-bit ARM (AArch64), with the goal of running AmigaOS a
 through standard exec I/O.
 
 This repo is the **graft / host layer**. The AROS operating-system source we
-modify lives in a *separate, local-only* checkout (`../aros-upstream`, branch
-`aarch64-darwin-graft`); see [Repository layout](#repository-layout).
+modify lives in a *separate sibling* checkout (`../aros-upstream`, branch
+`aarch64-darwin-graft`) — a fork of AROS at
+[github.com/jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft);
+see [Repository layout](#repository-layout).
+
+> **New here?** Start with **[GETTING-STARTED.md](GETTING-STARTED.md)** — a
+> newcomer's path from an empty Mac to a running system (source → toolchain →
+> build → run).
 
 ## Objectives
 
@@ -79,18 +85,26 @@ to one more surface, and every one must verify in the unattended loop.
 
 ## Quick start
 
+Full newcomer walkthrough: **[GETTING-STARTED.md](GETTING-STARTED.md)**. The short
+version:
+
 ```sh
 brew install qemu llvm lld           # clang + ld.lld + lldb + qemu-system-aarch64
 
-# --- The hosted Mac app (Apple Silicon) ---
-graft/build-darwin-aarch64.sh        # build hosted AROS for darwin-aarch64 (see GRAFT.md)
-graft/run-window.sh                  # boot AROS in a live Cocoa/Metal window; type at the shell
-graft/make-aros-app.sh               # package it as a double-clickable Macaros.app
-graft/aros-ctl run                   # …or drive the window headlessly (type/click/shot)
-
-# --- 68k JIT ---
+# --- 68k JIT (no AROS build needed — instant) ---
 make run68k                          # -> build/run68k
 build/run68k hosted/jit68k/apps68k/bin/mandel.exe   # runs a 68k Mandelbrot, exit 0
+
+# --- The hosted Mac app (Apple Silicon) ---
+# Building hosted AROS needs the OS source as a sibling checkout and a real
+# configure — do NOT expect a one-shot script. See GETTING-STARTED.md §2–§4:
+#   git clone -b aarch64-darwin-graft https://github.com/jonx/AROS.git ../aros-upstream
+#   (configure /tmp/arosbuild --target=darwin-aarch64 --with-toolchain=llvm, build metatargets)
+make cocoametal-dylib pasteboard-dylib coreaudio-dylib bsdsock-dylib   # host shims -> build/
+graft/aros-ctl deploy                # stage the shims + Cocoa monitor into the boot tree
+AROS_CTL_STARTUP_MODE=desktop graft/run-window.sh   # boot AROS in a live Cocoa/Metal window
+graft/make-aros-app.sh               # …or package it as a double-clickable Macaros.app
+graft/aros-ctl run                   # …or drive the window headlessly (type/click/shot)
 
 # --- The AArch64 backend on QEMU (Act 1 foundation) ---
 make run                             # build an AArch64 ELF, boot on QEMU, verify latest milestone
@@ -98,10 +112,16 @@ make test                            # boot once, assert every milestone marker
 make hosted-test                     # build + run every hosted spike (H1–H12)
 ```
 
-The hosted build dir lives **outside** the repo (often under `/private/tmp`,
-ephemeral); the scripts discover it, or you point them at it with
-`AROS_CTL_BOOTD`. The dylib and entitlements travel with the checkout. Build/run
-specifics and the ephemeral-tree gotchas are in [graft/CONTINUATION.md](graft/CONTINUATION.md).
+> ⚠️ There is no single "build hosted AROS" script. The OS is built from the
+> `../aros-upstream` checkout with a real `configure` + module **metatargets** in a
+> stable build dir — read [docs/features/build/README.md](docs/features/build/README.md)
+> **first** (a bare `make` tries to rebuild the 1–2 h LLVM toolchain and breaks).
+
+The hosted build dir lives **outside** the repo (default `/tmp/arosbuild`); the
+run scripts discover it, or you point them at it with `AROS_CTL_BOOTD`. The host
+dylibs and entitlements travel with the checkout. Build specifics are in
+[docs/features/build/README.md](docs/features/build/README.md); deploy/run and the
+several-copies gotchas in [docs/features/deployment/README.md](docs/features/deployment/README.md).
 
 ## The arc — three acts
 
@@ -167,10 +187,10 @@ exec I/O* — and all must verify in the unattended loop.
 | Host app shell (Macaros) | menu bar, About, icon, two-tier Settings — a real Mac app | [design](docs/features/host-app-shell/design.md) · [spec](docs/features/host-app-shell/spec.md) | **built** |
 | Clipboard bridge | two-way copy/paste, `NSPasteboard` ↔ `clipboard.device` | [README](docs/features/clipboard-bridge/README.md) · [design](docs/features/clipboard-bridge/design.md) · [spec](docs/features/clipboard-bridge/spec.md) | **built** |
 | Control harness (`aros-ctl`) | puppet the windowed AROS headlessly, inside the loop | [README](docs/features/control-harness/README.md) · [design](docs/features/control-harness/design.md) · [spec](docs/features/control-harness/spec.md) | **built** |
-| Host volume | a real Mac folder mounted as an AROS volume, drag-from-Finder | [README](docs/features/host-volume/README.md) · [design](docs/features/host-volume/design.md) · [spec](docs/features/host-volume/spec.md) | foundation landed |
-| 68k JIT | host 68k→AArch64 translator for classic Amiga binaries | [design](docs/features/68k-jit/design.md) · [spec](docs/features/68k-jit/spec.md) · [interface](docs/features/68k-jit/INTERFACE.md) | `run68k` built |
-| CoreAudio audio | real sound via a CoreAudio-backed AHI sub-driver | [README](docs/features/coreaudio-audio/README.md) · [design](docs/features/coreaudio-audio/design.md) · [spec](docs/features/coreaudio-audio/spec.md) | host shim proven; AHI driver next |
-| Host BSD sockets | working TCP/IP by forwarding `bsdsocket.library` to native sockets | [design](docs/features/bsdsocket-net/design.md) · [spec](docs/features/bsdsocket-net/spec.md) | designed |
+| Host volume | a real Mac folder mounted as an AROS volume, drag-from-Finder | [README](docs/features/host-volume/README.md) · [design](docs/features/host-volume/design.md) · [spec](docs/features/host-volume/spec.md) | **built** |
+| 68k JIT | host 68k→AArch64 translator for classic Amiga binaries (adopts [Emu68](THIRD-PARTY-NOTICES.md), MPL-2.0) | [design](docs/features/68k-jit/design.md) · [spec](docs/features/68k-jit/spec.md) · [interface](docs/features/68k-jit/INTERFACE.md) | **built** (`run68k`) |
+| CoreAudio audio | real sound via a CoreAudio-backed AHI sub-driver | [README](docs/features/coreaudio-audio/README.md) · [design](docs/features/coreaudio-audio/design.md) · [spec](docs/features/coreaudio-audio/spec.md) | **built** |
+| Host BSD sockets | working TCP/IP by forwarding `bsdsocket.library` to native sockets | [README](docs/features/bsdsocket-net/README.md) · [design](docs/features/bsdsocket-net/design.md) · [spec](docs/features/bsdsocket-net/spec.md) | **built** |
 
 Supporting docs: the [feature index](docs/features/README.md) · the
 [CLEANROOM independent-work process](docs/features/CLEANROOM.md) that governs every
@@ -201,10 +221,18 @@ emulator. **Full docs: [hosted/jit68k/run68k.md](hosted/jit68k/run68k.md)** ·
 sample programs: [hosted/jit68k/apps68k/README.md](hosted/jit68k/apps68k/README.md) ·
 design: [docs/features/68k-jit/](docs/features/68k-jit/design.md).
 
+> **Third-party code:** unlike the rest of this repo, the JIT is **not**
+> clean-room. Its 68k decoders and AArch64 emitter are adopted from
+> **[Emu68](https://github.com/michalsc/Emu68) (MPL-2.0)**, vendored verbatim in
+> `hosted/jit68k/emu68/` behind a documented license boundary; our engine, loader,
+> and OS bridge link to them but copy no Emu68 code. Full disclosure:
+> [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 ## Repository layout
 
-Work spans **two sibling checkouts** — this repo (the host layer) and a separate,
-local-only AROS OS-source tree.
+Work spans **two sibling checkouts** — this repo (the host layer) and a separate
+AROS OS-source tree (the [jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft)
+fork, branch `aarch64-darwin-graft`).
 
 ```
 aros-aarch64/                     ← THIS repo (the graft / host layer)
@@ -221,22 +249,26 @@ aros-aarch64/                     ← THIS repo (the graft / host layer)
 │   ├── build-darwin-aarch64.sh / run-window.sh / make-aros-app.sh / aros-ctl
 │   ├── cpu_aarch64.h, cpucontext-aarch64.h, configure-darwin-aarch64.diff   (seed patches)
 │   ├── README.md, WORKFLOW.md, UPSTREAM-NOTES.md, CONTINUATION.md, cocoa-display-handoff.md
-│   └── upstream-patches/   ← snapshot of the local-only aros-upstream branch (backup)
+│   └── upstream-patches/   ← snapshot of the aros-upstream branch (backup / offline diff)
 ├── docs/features/   grounded design + spec per host capability (table above)
 └── ROADMAP / PHASE1 / PHASE2 / GRAFT / HARDWARE / NOTES   the planning + decision log
 
-../aros-upstream/                 ← the actual AROS OS source (LOCAL ONLY, branch aarch64-darwin-graft)
+../aros-upstream/                 ← the actual AROS OS source — jonx/AROS fork, branch aarch64-darwin-graft
                                      rom/, workbench/, arch/all-darwin, arch/aarch64-all …
-                                     edited & committed there; cannot be pushed to AROS upstream;
-                                     mirrored into graft/upstream-patches/ in this repo.
+                                     edited & committed there; clone with:
+                                       git clone -b aarch64-darwin-graft https://github.com/jonx/AROS.git ../aros-upstream
+                                     also mirrored into graft/upstream-patches/ in this repo (offline diff).
 ```
 
 ### Doc map — start here
 
 | If you want… | Read |
 |--------------|------|
+| To get from an empty Mac to a running system | [GETTING-STARTED.md](GETTING-STARTED.md) |
 | The big-picture arc & rationale | [ROADMAP.md](ROADMAP.md) |
 | The architecture + decision log (and bugs grounding caught) | [NOTES.md](NOTES.md) |
+| The host-side code map (shims, spikes, what's built vs. an idea) | [hosted/README.md](hosted/README.md) |
+| Third-party code & licenses (the Emu68 / MPL-2.0 adoption) | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) |
 | Act-1 milestone checklist | [PHASE1.md](PHASE1.md) · [HARDWARE.md](HARDWARE.md) |
 | Act-2 spike list | [PHASE2.md](PHASE2.md) |
 | How the spikes map into the real AROS tree | [GRAFT.md](GRAFT.md) |
@@ -248,10 +280,17 @@ aros-aarch64/                     ← THIS repo (the graft / host layer)
 
 ## Provenance & licensing
 
-AROS is distributed under the [AROS Public License](https://aros.org/license/);
-code here intended for upstream follows suit (see individual files). The host-side
-feature work is **independent work** — written from public APIs, published
-standards, the AROS tree, and this project's own spikes, under the
-[independent-work process](docs/features/CLEANROOM.md); no third-party
-implementation source was read or consulted, and any resemblance is coincidental.
+This repo is licensed under the **AROS Public License** ([LICENSE](LICENSE), APL
+1.1, MPL-derived) — the same license AROS itself uses, so anything destined for
+upstream carries over cleanly. The host-side feature work is **independent
+work** — written from public APIs, published standards, the AROS tree, and this
+project's own spikes, under the [independent-work process](docs/features/CLEANROOM.md);
+no third-party implementation source was read or consulted, and any resemblance is
+coincidental.
+
+**One deliberate exception:** the 68k JIT (`run68k`) adopts **Emu68** (MPL-2.0) as
+vendored, isolated files under a documented license boundary — it is not
+clean-room, and its files are not AROS-licensed. This is the repo's only
+third-party code; see **[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)** and
+[hosted/jit68k/emu68/NOTICE](hosted/jit68k/emu68/NOTICE).
 </content>
