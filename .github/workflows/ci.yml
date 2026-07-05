@@ -14,9 +14,11 @@ jobs:
       - name: Build the 68k JIT
         run: make run68k
       - name: Run 68k samples (JIT + interpreter oracle)
-        # These programs return their computed result as the exit code.
+        # These programs return their computed result as the exit code, so
+        # capture it explicitly (the runner shell is bash -e).
         run: |
-          set -x
-          build/run68k hosted/jit68k/apps68k/bin/mandel.exe;  test $? -eq 0
-          build/run68k hosted/jit68k/apps68k/bin/bubsort.exe; test $? -eq 245
-          build/run68k hosted/jit68k/apps68k/bin/sumsq.exe;   test $? -eq 55
+          expect() { rc=0; build/run68k "hosted/jit68k/apps68k/bin/$1" || rc=$?; \
+                     [ "$rc" -eq "$2" ] || { echo "$1: got $rc want $2"; exit 1; }; }
+          expect mandel.exe 0
+          expect bubsort.exe 245
+          expect sumsq.exe 55
