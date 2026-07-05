@@ -49,7 +49,7 @@ latent faults matter — mixing x18/non-x18 modules is safe (no ABI change). To 
 module's recompile: delete its `gen/**/*.o` (make.cfg alone doesn't invalidate them),
 then build its metatarget.
 
-> Raised with kalamatee (Nick Andrews), who noted the hosted path saves/restores
+> Raised with kalamatee, who noted the hosted path saves/restores
 > `x18` and that making it usable is the host's job, not the binary's. Both true;
 > the probe shows macOS removes that option on Apple Silicon. Re-run `x18probe.c`
 > to re-check on a future macOS.
@@ -913,8 +913,8 @@ PASS`. Proof screenshot `run/darwin-aarch64/ff0-on-aros.png`.
 Decisions / findings that landed during the build:
 - **The "mistake" fix was `-D_GNU_SOURCE`, not a shim.** The four functions
   (`fdopen`/`mkstemp`/`tempnam`/`posix_memalign`) were always in the posixc headers,
-  behind `_GNU_SOURCE`/`_XOPEN_SOURCE`; `--target-os=none` left the flag off. Nick
-  (kalamatee) diagnosed it. Dropped `aros-compat.h`, added `--extra-cflags=-D_GNU_SOURCE`.
+  behind `_GNU_SOURCE`/`_XOPEN_SOURCE`; `--target-os=none` left the flag off.
+  kalamatee diagnosed it. Dropped `aros-compat.h`, added `--extra-cflags=-D_GNU_SOURCE`.
 - **Toolchain is split across trees (cost an hour, now in `[[aros-build-tree-layout]]`).**
   Canonical SDK at `/tmp/arosbuild`, AROS-patched crosstools at `/tmp/aros-crosstools`.
   Old `/private/tmp` session-scratchpad copies get OS-GC'd half-empty, so discovery
@@ -927,7 +927,7 @@ Decisions / findings that landed during the build:
   stdcio runtime module). FF0Smoke needs `StdCIOBase` via libavutil/posixc (can't be
   dropped: `-lstdcio` removal leaves `__aros_getbase_StdCIOBase` undefined). Stopgap:
   copied `stdcio.library` from a7d73cfa into `/tmp/arosbuild/Libs`. The real fix is the
-  build installing it. **TODO for the tree owner: build/install stdcio.library.**
+  build installing it. **Open item: make the build install stdcio.library.**
 - **Run method matters:** `graft/aros-ctl run` stages a known-good console boot; type +
   `shot`. Do NOT use `bench-run`'s custom Startup-Sequence on `/tmp/arosbuild` (it
   cold-start-halts at dos.library). Boots crash intermittently (known app bug): retry.
@@ -945,7 +945,7 @@ Decisions / findings that landed during the build:
 **Merge facts:** graft `../aros-upstream` branch `aarch64-darwin-graft` HEAD `a3253c3d`;
 `origin/master` `58b02588` (28-commit delta, mostly `stdc`/`posixc` conformance by
 kalamatee + WiFi/raspi/AROSTCP by bsek); merge-base `5c78c7d5`. The known `__vcformat`
-conflict is GONE (I reverted `__vcformat.c` to original-gated, so Nick's `fb49cfa4`
+conflict is GONE (I reverted `__vcformat.c` to original-gated, so kalamatee's `fb49cfa4`
 should merge clean). Watch for other conflicts in `stdc`/`posixc`/`config/make.tmpl`.
 Reference worktree (detached at master) at `../aros-upstream-master`; remove with
 `git -C ../aros-upstream worktree remove ../aros-upstream-master`.
