@@ -7,5 +7,19 @@
 # hosted/rust/build.sh). Covers the aros-rt crate and any future sibling crates.
 hosted/rust/**/target/
 
+# Unreferenced experimental host libc compat shim (regenerable, not wired in).
+hosted/rust/compat/
+
+# Compiled probe artifacts + a Metal shader intermediate that embed the local
+# build path in debug info (all regenerable). The run68k sample corpus under
+# hosted/jit68k/apps68k/bin/ is intentionally kept (it does not embed paths).
+hosted/cocoametal/cmshader.air
+hosted/jit68k/rust68k/bin/allocprobe.exe
+hosted/jit68k/rust68k/bin/vecsum.exe
+hosted/jit68k/rust68k/bin/vecsum_inclusive.exe
+hosted/jit68k/rust68k/memprobe/mp_nightly-*.exe
+hosted/jit68k/rust68k/std68k-probe/std68k.exe
+hosted/jit68k/rust68k/std68k-probe/std68k.exe.demo
+
 # macOS
 .DS_Store
