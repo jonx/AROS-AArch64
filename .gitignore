@@ -33,9 +33,6 @@ docs/features/bsdsocket-net/*-proof.png
 # committed, and make-macaron-icon.sh accepts any source image as $1).
 hosted/cocoametal/Macaros-source.png
 
-# Local agent/tooling notes (not part of the published tree).
-/CLAUDE.md
-
 # macOS
 .DS_Store
 
