@@ -135,6 +135,7 @@ cocoametal-dylib: | build
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings_schema.m hosted/cocoametal/cocoametal_control.m \
 		hosted/cocoametal/cocoametal_shell.m hosted/cocoametal/cocoametal_statusbar.m \
+		hosted/cocoametal/cocoametal_gpu.m \
 		-o $(COCOAMETAL_DYLIB) \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework ImageIO \
@@ -155,6 +156,22 @@ cocoametal-abi: cocoametal-dylib
 	clang -arch arm64 -O2 -Wall -Wextra \
 		-Ihosted/cocoametal hosted/cocoametal/abi_test.c -o build/cocoametal-abi
 	BIN=build/cocoametal-abi ./harness/run-hosted.sh '[ABI] PASS'
+
+# GPU compute section ([GPU], docs/features/gpufx): dlopen the dylib, dlsym only
+# the cm_gpu_* contract (not the frozen CMIFace), verify nearest scale byte-exact
+# vs the CPU reference, bilinear within +/-1, YUV420->RGBA (both ranges) +/-2.
+cocoametal-gpu: cocoametal-dylib
+	clang -arch arm64 -O2 -Wall -Wextra \
+		-Ihosted/cocoametal hosted/cocoametal/gpu_test.c -o build/cocoametal-gpu
+	BIN=build/cocoametal-gpu ./harness/run-hosted.sh '[GPU] PASS all'
+
+# Regenerate the embedded shader library after editing cmshader.metal.
+# (cmshader_metallib.h is committed so plain builds never need Xcode's metal
+# toolchain; run this rule when the .metal source changes.)
+cocoametal-shader:
+	xcrun -sdk macosx metal -c hosted/cocoametal/cmshader.metal -o hosted/cocoametal/cmshader.air
+	xcrun -sdk macosx metallib hosted/cocoametal/cmshader.air -o build/cmshader.metallib
+	xxd -i -n cmshader_metallib build/cmshader.metallib > hosted/cocoametal/cmshader_metallib.h
 
 # Host app shell ([GSHELL]): dlopen the REAL build/cocoametal.dylib, let cm_open
 # install the menu bar + About + icon (cocoametal_shell.m), then assert — against
