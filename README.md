@@ -91,6 +91,40 @@ MacBook — *macOS owns the drivers; AROS reaches them via standard exec I/O.*
   binaries (integer **and** 68881/68882 hardware FP) natively on Apple Silicon,
   byte-exact-verified. See [Run classic 68k software](#run-classic-68k-software--run68k).
 
+## By the numbers — this first release
+
+Two hand-written trees. Rough line counts (not a quality metric — a sense of scope):
+
+**AROS OS source** — the AArch64 CPU backend + the darwin host, in the
+[jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft) fork.
+**~39,100 added / ~10,400 removed across 598 files:**
+
+| Lines | Type | What |
+|------:|------|------|
+| 32,800 | `.c` | kernel, drivers, host bridge |
+| 4,000 | `.h` | headers |
+| 700 | `.conf` | module / build config |
+| 700 | `.src` | module sources |
+| 330 | `.s`/`.S` | assembly (AArch64 boot / context switch) |
+| 600 | rest | diff / in / tmpl / yml / md |
+
+**Host / graft layer** — this repo (Cocoa/Metal, the unattended-loop harness,
+tooling, docs). **~125,900 added over 225 commits:**
+
+| Lines | Type | What |
+|------:|------|------|
+| 54,900 | `.c` | host bridge, drivers, harness, samples |
+| 34,600 | `.md` | docs (design / spec / status) |
+| 10,300 | `.h` | headers |
+| 8,800 | `.m` | Objective-C — Cocoa/Metal display, app shell |
+| 4,200 | `.sh` | run / deploy / control scripts |
+| 2,400 | `.s`/`.S` | assembly |
+| 1,900 | `.rs` | Rust-on-AROS work |
+| 2,000 | rest | metal, perl, python, toml, json |
+
+**≈ 165,000 lines added** across the two trees. (The 68k JIT additionally vendors
+**Emu68**, MPL-2.0 — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).)
+
 ## Quick start
 
 Full newcomer walkthrough: **[GETTING-STARTED.md](GETTING-STARTED.md)**. The short
