@@ -58,7 +58,15 @@ to one more surface, and every one must verify in the unattended loop.
 
 ## Status — what works today
 
-![AROS booting to a Shell in a live macOS Cocoa/Metal window](graft/cocoa-display-shell-proof.png)
+![Macaros — the AROS Wanderer desktop running as a native app on an Apple Silicon Mac](docs/aros-apple-silicon-macaros.png)
+
+*One arm64 macOS app.* The window in the middle is the real **AROS Wanderer**
+desktop — its host volumes (`RAM Disk`, plus `MacRO` and `MacRW`: two Mac folders
+mounted read-only and read-write), the `System:` drawer, and a live Clock — drawn
+into a Cocoa/Metal window. Around it is **Macaros**, the Mac app that hosts it: the
+menu bar, the About panel (the macaron), and a native, schema-driven **AROS
+Settings** window. It is all a single hosted arm64 process on an M-series
+MacBook — *macOS owns the drivers; AROS reaches them via standard exec I/O.*
 
 - **Real AROS boots on Apple Silicon** as a native arm64 macOS process — exec /
   kernel.resource / hostlib / dos.library / the full boot module set come up,
@@ -146,8 +154,6 @@ the real DTB / Linux headers / QEMU source in [HARDWARE.md](HARDWARE.md).
 | M9 | framebuffer | ramfb via fw_cfg, screendump-verified |
 | M10 | preemption | SIGALRM-as-timer preemptive multitasking |
 
-![M9 framebuffer — four quadrants](docs/m9-framebuffer.png)
-
 ### Act 2 — Hosted spikes on macOS ✅
 Rather than attempt the full port at once, **de-risk the scary parts
 cheapest-first** — each a standalone, grounded, loop-verified spike (`make
@@ -162,8 +168,6 @@ the spikes map into the real AROS tree in [GRAFT.md](GRAFT.md).
 | H7 | display | AROS draws a framebuffer from its heap; macOS presents it |
 | H8 | library/LVO | a tiny `exec.library` via the real jump-vector mechanism + `SetFunction` |
 | H9–H12 | exec primitives | `Wait`/`Signal`, message ports, device→real-file `DoIO`, full exec boot |
-
-![AROS hosted on macOS — H7](docs/h7-hosted-display.png)
 
 ### Act 3 — The graft (porting the real AROS tree) 🔄
 Stop spiking and integrate the **real AROS source** for `darwin-aarch64`. This is
