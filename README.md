@@ -196,7 +196,7 @@ exec I/O* — and all must verify in the unattended loop.
 | CoreAudio audio | real sound via a CoreAudio-backed AHI sub-driver | [README](docs/features/coreaudio-audio/README.md) · [design](docs/features/coreaudio-audio/design.md) · [spec](docs/features/coreaudio-audio/spec.md) | **built** |
 | Host BSD sockets | working TCP/IP by forwarding `bsdsocket.library` to native sockets | [README](docs/features/bsdsocket-net/README.md) · [design](docs/features/bsdsocket-net/design.md) · [spec](docs/features/bsdsocket-net/spec.md) | **built** |
 | Native media (ffmpeg) | decode-only `libav*` built for AROS + **FFViewX / FFView** image + video viewer | [README](docs/features/ffmpeg-native/README.md) | **built** |
-| GPU 2D (gpufx) | GPU-accelerated YUV→RGB + scale via the cocoametal compute shim + a `gpufx.library` front door (5–7× the CPU path) | [README](docs/features/gpufx/README.md) | **started** |
+| GPU 2D (gpufx) | GPU-accelerated YUV→RGB + scale via the cocoametal compute shim + a `gpufx.library` front door; FFViewX's video path runs on it (5–7×) | [README](docs/features/gpufx/README.md) | **built** |
 | Rust on AROS | full Rust `std` runs natively — net/fs/env/args/process/time/thread, verified live | [README](docs/features/rust-aros/README.md) · [build a program](hosted/rust/BUILDING-PROGRAMS.md) | **built** |
 
 Supporting docs: the [feature index](docs/features/README.md) · the
