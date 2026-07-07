@@ -195,6 +195,9 @@ exec I/O* — and all must verify in the unattended loop.
 | 68k JIT | host 68k→AArch64 translator for classic Amiga binaries (adopts [Emu68](THIRD-PARTY-NOTICES.md), MPL-2.0) | [design](docs/features/68k-jit/design.md) · [spec](docs/features/68k-jit/spec.md) · [interface](docs/features/68k-jit/INTERFACE.md) | **built** (`run68k`) |
 | CoreAudio audio | real sound via a CoreAudio-backed AHI sub-driver | [README](docs/features/coreaudio-audio/README.md) · [design](docs/features/coreaudio-audio/design.md) · [spec](docs/features/coreaudio-audio/spec.md) | **built** |
 | Host BSD sockets | working TCP/IP by forwarding `bsdsocket.library` to native sockets | [README](docs/features/bsdsocket-net/README.md) · [design](docs/features/bsdsocket-net/design.md) · [spec](docs/features/bsdsocket-net/spec.md) | **built** |
+| Native media (ffmpeg) | decode-only `libav*` built for AROS + **FFViewX / FFView** image + video viewer | [README](docs/features/ffmpeg-native/README.md) | **built** |
+| GPU 2D (gpufx) | GPU-accelerated YUV→RGB + scale via the cocoametal compute shim + a `gpufx.library` front door (5–7× the CPU path) | [README](docs/features/gpufx/README.md) | **started** |
+| Rust on AROS | full Rust `std` runs natively — net/fs/env/args/process/time/thread, verified live | [README](docs/features/rust-aros/README.md) | **built** |
 
 Supporting docs: the [feature index](docs/features/README.md) · the
 [CLEANROOM independent-work process](docs/features/CLEANROOM.md) that governs every
@@ -248,12 +251,14 @@ aros-aarch64/                     ← THIS repo (the graft / host layer)
 │   ├── hostvolume/   the Mac-folder-as-AROS-volume handler
 │   ├── coreaudio/    CoreAudio AHI sub-driver shim          (see also hostshell/, libaros/)
 │   ├── bsdsocket/    bsdsocket.library → native sockets pump
+│   ├── ffmpeg/       libav* built native for AROS + FFViewX/FFView viewer
+│   ├── gpufx/        GPU 2D (YUV→RGB + scale) compute shim + gpufx.library
+│   ├── rust/         Rust std port for AROS + the RustHello sample   (STD-PORT.md)
 │   └── jit68k/       the 68k→AArch64 JIT + the run68k CLI    (run68k.md)
 ├── graft/       the AArch64-darwin patch set + build/run scripts for the OS tree:
-│   ├── build-darwin-aarch64.sh / run-window.sh / make-aros-app.sh / aros-ctl
+│   ├── build-darwin-aarch64.sh / run-window.sh / make-aros-app.sh / make-aros-release.sh / aros-ctl
 │   ├── cpu_aarch64.h, cpucontext-aarch64.h, configure-darwin-aarch64.diff   (seed patches)
-│   ├── README.md, WORKFLOW.md, UPSTREAM-NOTES.md, CONTINUATION.md, cocoa-display-handoff.md
-│   └── upstream-patches/   ← snapshot of the aros-upstream branch (backup / offline diff)
+│   └── README.md, WORKFLOW.md, UPSTREAM-NOTES.md, CONTINUATION.md, cocoa-display-handoff.md
 ├── docs/features/   grounded design + spec per host capability (table above)
 └── ROADMAP / PHASE1 / PHASE2 / GRAFT / HARDWARE / NOTES   the planning + decision log
 
@@ -261,7 +266,6 @@ aros-aarch64/                     ← THIS repo (the graft / host layer)
                                      rom/, workbench/, arch/all-darwin, arch/aarch64-all …
                                      edited & committed there; clone with:
                                        git clone -b aarch64-darwin-graft https://github.com/jonx/AROS.git ../aros-upstream
-                                     also mirrored into graft/upstream-patches/ in this repo (offline diff).
 ```
 
 ### Doc map — start here
@@ -279,7 +283,6 @@ aros-aarch64/                     ← THIS repo (the graft / host layer)
 | Current hosted-AROS state (resume here) | [graft/CONTINUATION.md](graft/CONTINUATION.md) |
 | The graft patch set & build status | [graft/README.md](graft/README.md) · [graft/WORKFLOW.md](graft/WORKFLOW.md) · [graft/UPSTREAM-NOTES.md](graft/UPSTREAM-NOTES.md) |
 | The hosted features (built & planned) | [docs/features/README.md](docs/features/README.md) |
-| Backing up the local AROS branch | [graft/upstream-patches/README.md](graft/upstream-patches/README.md) |
 | Where AROS-as-an-embeddable-library is heading | [hosted/libaros/IDEAS.md](hosted/libaros/IDEAS.md) |
 
 ## Provenance & licensing
