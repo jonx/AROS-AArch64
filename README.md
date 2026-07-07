@@ -197,7 +197,7 @@ exec I/O* — and all must verify in the unattended loop.
 | Host BSD sockets | working TCP/IP by forwarding `bsdsocket.library` to native sockets | [README](docs/features/bsdsocket-net/README.md) · [design](docs/features/bsdsocket-net/design.md) · [spec](docs/features/bsdsocket-net/spec.md) | **built** |
 | Native media (ffmpeg) | decode-only `libav*` built for AROS + **FFViewX / FFView** image + video viewer | [README](docs/features/ffmpeg-native/README.md) | **built** |
 | GPU 2D (gpufx) | GPU-accelerated YUV→RGB + scale via the cocoametal compute shim + a `gpufx.library` front door (5–7× the CPU path) | [README](docs/features/gpufx/README.md) | **started** |
-| Rust on AROS | full Rust `std` runs natively — net/fs/env/args/process/time/thread, verified live | [README](docs/features/rust-aros/README.md) | **built** |
+| Rust on AROS | full Rust `std` runs natively — net/fs/env/args/process/time/thread, verified live | [README](docs/features/rust-aros/README.md) · [build a program](hosted/rust/BUILDING-PROGRAMS.md) | **built** |
 
 Supporting docs: the [feature index](docs/features/README.md) · the
 [CLEANROOM independent-work process](docs/features/CLEANROOM.md) that governs every
