@@ -7,8 +7,6 @@
 # build script regenerates it).
 **/target/
 
-# Unreferenced experimental host libc compat shim (regenerable, not wired in).
-hosted/rust/compat/
 
 # Compiled intermediates (regenerable; some embed the local build path in
 # debug info). The shader ships embedded as cmshader_metallib.h; .air/.metallib
