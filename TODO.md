@@ -5,8 +5,9 @@ a [ROADMAP.md](ROADMAP.md) phase. Per-subsystem design + status lives in
 [docs/features/](docs/features/README.md); this is the "we'll get to it" list.
 
 ## Host app / FFView
-- [ ] **FFView drag-and-drop** — register an AppWindow so dropping a file icon from
-      Wanderer opens it in the viewer. (User-requested.)
+- [x] **FFView drag-and-drop** — AppWindow registered; dropping a Wanderer file icon
+      opens it in the viewer (empty "drop a file" state when launched with no arg).
+      Done 2026-07-13, verified live (drop big.m4v -> plays).
 - [ ] **Datatypes integration** — a `libavcodec`-backed picture/animation datatype so
       the desktop / MultiView opens media (and launches FFView). See "Remaining work"
       in [ffmpeg-native](docs/features/ffmpeg-native/README.md).
