@@ -8,9 +8,13 @@ a [ROADMAP.md](ROADMAP.md) phase. Per-subsystem design + status lives in
 - [x] **FFView drag-and-drop** — AppWindow registered; dropping a Wanderer file icon
       opens it in the viewer (empty "drop a file" state when launched with no arg).
       Done 2026-07-13, verified live (drop big.m4v -> plays).
-- [ ] **Datatypes integration** — a `libavcodec`-backed picture/animation datatype so
-      the desktop / MultiView opens media (and launches FFView). See "Remaining work"
-      in [ffmpeg-native](docs/features/ffmpeg-native/README.md).
+- [x] **Datatypes integration** — `ffmpeg.datatype` (libavcodec-backed picture
+      datatype) decodes a video's first frame so MultiView / the desktop preview
+      media. Done 2026-07-13, verified live (MultiView opens test.avi → first
+      frame shown). Class + `FFmpeg.dtd` in aros-upstream; build via
+      `hosted/ffmpeg/build-datatype.sh`. Follow-ups: an *animation* datatype
+      (multi-frame playback in MultiView), more container descriptors (mp4/mov/
+      mkv route in the picture group), and launching FFView from the datatype.
 
 ## OS / build
 - [ ] **Full OS rebuild with `-ffixed-x18`** — the make.cfg config is committed and
