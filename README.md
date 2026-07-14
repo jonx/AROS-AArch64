@@ -1,345 +1,284 @@
 # AROS-AArch64 — AmigaOS on Apple Silicon
 
+**AmigaOS, running as a native app on your Mac — and drivable end-to-end by a
+program with nobody at the keyboard.**
+
 AROS-AArch64 brings [AROS](https://aros.org) — the open-source AmigaOS
-reimplementation — to 64-bit ARM (AArch64), with the goal of running AmigaOS as a
-**native app on Apple Silicon**: the Mac owns the drivers, and AROS reaches them
-through standard exec I/O.
-
-This repo is the **graft / host layer**. The AROS operating-system source we
-modify lives in a *separate sibling* checkout (`../aros-upstream`, branch
-`aarch64-darwin-graft`) — a fork of AROS at
-[github.com/jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft);
-see [Repository layout](#repository-layout).
-
-> **New here?** Start with **[GETTING-STARTED.md](GETTING-STARTED.md)** — a
-> newcomer's path from an empty Mac to a running system (source → toolchain →
-> build → run).
-
-## Objectives
-
-1. **A native AArch64 backend for AROS** — vectors, MMU, context switch, exception
-   model on 64-bit ARM. Greenfield, reusable on *every* ARM64 target, and the
-   genuine standalone contribution (AROS's first native AArch64 bring-up).
-2. **Run AmigaOS as a native macOS app on Apple Silicon** — AROS as an arm64
-   process, *hosted*: macOS owns every driver and AROS reaches them via standard
-   exec I/O. Going hosted is deliberate — it sidesteps the undocumented
-   Apple-Silicon hardware almost entirely (see the two hard problems below).
-3. **Toward an embeddable, scriptable AROS** — an engine/shell split so AmigaOS
-   can be driven and embedded, not just booted. Direction:
-   [hosted/libaros/IDEAS.md](hosted/libaros/IDEAS.md).
-
-### The one rule that shapes everything
-
-> An AI agent must be able to run the **whole loop unattended** — build → boot →
-> observe → judge — with **no manual step**.
-
-Every design decision serves that rule. It's why the hard CPU work happens on QEMU
-(which exposes the machine programmatically — serial, QMP, gdbstub) rather than on
-a locked-down MacBook, and why the hosted side always keeps a *programmatic* pixel
-channel beside any on-screen window (a live window can't be verified by
-screen-capture without a manual permission click). Rationale:
-[ROADMAP.md](ROADMAP.md), [NOTES.md](NOTES.md).
-
-### Two hard problems — never worked at once
-
-1. **The AArch64 CPU backend** — greenfield, reusable on every ARM64 target.
-2. **Apple Silicon specifics** — undocumented hardware, custom interrupt
-   controller, signed boot. Deferred as long as possible.
-
-The arc keeps them apart: do the CPU backend entirely on QEMU, then reach the Mac
-by going *hosted*, which sidesteps the Apple-specific hardware. Native-on-bare-
-Apple-Silicon is explicitly a non-goal.
-
-### The thesis
-
-*macOS owns the drivers; AROS reaches them via standard exec I/O.* Every hosted
-feature — display, clipboard, audio, sockets, volumes — is that one idea applied
-to one more surface, and every one must verify in the unattended loop.
-
-## Status — what works today
+reimplementation — to 64-bit ARM, and then runs it *hosted* on Apple Silicon:
+AROS is an ordinary arm64 macOS process, macOS owns every driver, and AROS
+reaches them through standard exec I/O. Display, clipboard, audio, sockets,
+volumes — each is that one idea applied to one more surface.
 
 ![Macaros — the AROS Wanderer desktop running as a native app on an Apple Silicon Mac](docs/aros-apple-silicon-macaros.png)
 
-*One arm64 macOS app.* The window in the middle is the real **AROS Wanderer**
-desktop — its host volumes (`RAM Disk`, plus `MacRO` and `MacRW`: two Mac folders
-mounted read-only and read-write), the `System:` drawer, and a live Clock — drawn
-into a Cocoa/Metal window. Around it is **Macaros**, the Mac app that hosts it: the
-menu bar, the About panel (the macaron), and a native, schema-driven **AROS
-Settings** window. It is all a single hosted arm64 process on an M-series
-MacBook — *macOS owns the drivers; AROS reaches them via standard exec I/O.*
+This repository is the **graft / host layer**. The AROS operating-system source
+we modify lives in a separate sibling checkout, the
+[github.com/jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft)
+fork (branch `aarch64-darwin-graft`).
 
-- **Real AROS boots on Apple Silicon** as a native arm64 macOS process — exec /
-  kernel.resource / hostlib / dos.library / the full boot module set come up,
-  SYS: mounts, and the **AmigaDOS Shell reads typed commands and runs them**. The
-  full standard **C: command set (116 commands)** is installed. Multitasking,
-  W^X executable loading, and console I/O all work. Full state:
-  [graft/CONTINUATION.md](graft/CONTINUATION.md).
-- **A live Cocoa/Metal window** ([cocoa-metal-display](docs/features/cocoa-metal-display/design.md)) —
-  the AROS console renders in a Mac window (Apple-native AppKit + Metal) and the
-  keyboard drives the shell. Launch with [`graft/run-window.sh`](graft/run-window.sh).
-- **Macaros — a first-class Mac app** ([host-app-shell](docs/features/host-app-shell/design.md)) —
-  menu bar, About, custom icon, and schema-driven Settings, packaged as a
-  double-clickable `.app` by [`graft/make-aros-app.sh`](graft/make-aros-app.sh).
-- **Clipboard bridge** ([clipboard-bridge](docs/features/clipboard-bridge/README.md)) —
-  two-way copy/paste between the macOS `NSPasteboard` and AROS `clipboard.device`.
-- **`aros-ctl` — the control harness** ([control-harness](docs/features/control-harness/README.md)) —
-  drives the windowed AROS headlessly (type, click, screenshot the framebuffer,
-  tail the log) with no window-server session and no Screen-Recording prompt, so
-  the GUI stays inside the unattended loop. Built and in daily use:
-  [`graft/aros-ctl`](graft/aros-ctl).
-- **`run68k` — a 68k→AArch64 JIT** that runs self-contained classic-Amiga **68k**
-  binaries (integer **and** 68881/68882 hardware FP) natively on Apple Silicon,
-  byte-exact-verified. See [Run classic 68k software](#run-classic-68k-software--run68k).
+> **New here?** **[GETTING-STARTED.md](GETTING-STARTED.md)** takes you from an
+> empty Mac to a running system: source → toolchain → build → run.
 
-## By the numbers — this first release
+## What is this, and why
 
-Two hand-written trees. Rough line counts (not a quality metric — a sense of scope):
+Two audiences meet here:
 
-**AROS OS source** — the AArch64 CPU backend + the darwin host, in the
-[jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft) fork.
-**~39,100 added / ~10,400 removed across 598 files:**
+- **The Amiga / retro world** gets AmigaOS as a first-class, fast, native
+  application on modern Apple hardware — not an emulator of a specific old
+  machine, but the real AROS operating system compiled for AArch64.
+- **The OS / systems world** gets **AROS's first native AArch64 CPU bring-up** —
+  a greenfield backend (vectors, MMU, context switch, exception model) that is
+  reusable on every ARM64 target, done clean-room.
 
-| Lines | Type | What |
-|------:|------|------|
-| 32,800 | `.c` | kernel, drivers, host bridge |
-| 4,000 | `.h` | headers |
-| 700 | `.conf` | module / build config |
-| 700 | `.src` | module sources |
-| 330 | `.s`/`.S` | assembly (AArch64 boot / context switch) |
-| 600 | rest | diff / in / tmpl / yml / md |
+Reaching the Mac *hosted* is a deliberate choice: it sidesteps the undocumented
+Apple-Silicon hardware — custom interrupt controller, signed boot — almost
+entirely, so the effort goes into the OS, not into reverse-engineering a locked
+laptop. **Native on bare-metal Apple Silicon is an explicit non-goal.**
 
-**Host / graft layer** — this repo (Cocoa/Metal, the unattended-loop harness,
-tooling, docs). **~125,900 added over 225 commits:**
+### The one rule that shapes everything
 
-| Lines | Type | What |
-|------:|------|------|
-| 54,900 | `.c` | host bridge, drivers, harness, samples |
-| 34,600 | `.md` | docs (design / spec / status) |
-| 10,300 | `.h` | headers |
-| 8,800 | `.m` | Objective-C — Cocoa/Metal display, app shell |
-| 4,200 | `.sh` | run / deploy / control scripts |
-| 2,400 | `.s`/`.S` | assembly |
-| 1,900 | `.rs` | Rust-on-AROS work |
-| 2,000 | rest | metal, perl, python, toml, json |
+> **An AI agent must be able to run the whole loop unattended — build → boot →
+> observe → judge — with no manual step.**
 
-**≈ 165,000 lines added** across the two trees. (The 68k JIT additionally vendors
-**Emu68**, MPL-2.0 — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).)
+Every design decision serves that rule, and it is the project's most distinctive
+idea. Two consequences fall straight out of it:
 
-## Quick start
+- The hard CPU work happens **on QEMU**, not on a real MacBook, because QEMU
+  exposes the machine *programmatically* — serial, QMP, gdbstub — and a
+  locked-down Mac does not.
+- The hosted side **always keeps a programmatic pixel channel beside any
+  on-screen window**, because a live window can't be verified by screen-capture
+  without a manual permission click. The loop must never need one.
 
-Full newcomer walkthrough: **[GETTING-STARTED.md](GETTING-STARTED.md)**. The short
-version:
+## The harness: puppeteering a live AmigaOS from the command line
+
+The headline capability is **`graft/aros-ctl`** — a CLI that drives the hosted
+AROS running in its Cocoa/Metal window with **no human at the keyboard and no
+window-server session**. It boots AROS, types into the Shell, clicks and moves
+the mouse, opens menus, spins the wheel, captures the framebuffer, and reads the
+guest's logs and task states — all as ordinary shell commands. It is at once the
+project's test harness and the seed of an embeddable "drive AmigaOS from your
+own software" API.
 
 ```sh
-brew install qemu llvm lld           # clang + ld.lld + lldb + qemu-system-aarch64
-
-# --- 68k JIT (no AROS build needed — instant) ---
-make run68k                          # -> build/run68k
-build/run68k hosted/jit68k/apps68k/bin/mandel.exe   # runs a 68k Mandelbrot, exit 0
-
-# --- The hosted Mac app (Apple Silicon) ---
-# Building hosted AROS needs the OS source as a sibling checkout and a real
-# configure — do NOT expect a one-shot script. See GETTING-STARTED.md §2–§4:
-#   git clone -b aarch64-darwin-graft https://github.com/jonx/AROS.git ../aros-upstream
-#   (configure /tmp/arosbuild --target=darwin-aarch64 --with-toolchain=llvm, build metatargets)
-make cocoametal-dylib pasteboard-dylib coreaudio-dylib bsdsock-dylib   # host shims -> build/
-graft/aros-ctl deploy                # stage the shims + Cocoa monitor into the boot tree
-AROS_CTL_STARTUP_MODE=desktop graft/run-window.sh   # boot AROS in a live Cocoa/Metal window
-graft/make-aros-app.sh               # …or package it as a double-clickable Macaros.app
-graft/aros-ctl run                   # …or drive the window headlessly (type/click/shot)
-
-# --- The AArch64 backend on QEMU (Act 1 foundation) ---
-make run                             # build an AArch64 ELF, boot on QEMU, verify latest milestone
-make test                            # boot once, assert every milestone marker
-make hosted-test                     # build + run every hosted spike (H1–H12)
+graft/aros-ctl run                 # boot AROS windowed, in the background
+graft/aros-ctl wait 3              # let it reach the "1>" Shell prompt
+graft/aros-ctl type "echo hello"
+graft/aros-ctl enter
+graft/aros-ctl shot                # capture the framebuffer — no screen-recording prompt
+graft/aros-ctl stop                # graceful guest power-down
 ```
 
-> ⚠️ There is no single "build hosted AROS" script. The OS is built from the
-> `../aros-upstream` checkout with a real `configure` + module **metatargets** in a
-> stable build dir — read [docs/features/build/README.md](docs/features/build/README.md)
-> **first** (a bare `make` tries to rebuild the 1–2 h LLVM toolchain and breaks).
+Two properties make this trustworthy rather than a screen-scraping hack:
 
-The hosted build dir lives **outside** the repo (default `/tmp/arosbuild`); the
-run scripts discover it, or you point them at it with `AROS_CTL_BOOTD`. The host
-dylibs and entitlements travel with the checkout. Build specifics are in
-[docs/features/build/README.md](docs/features/build/README.md); deploy/run and the
-several-copies gotchas in [docs/features/deployment/README.md](docs/features/deployment/README.md).
+- **Injected input is indistinguishable from real input.** Commands travel as
+  single lines over one control FIFO into the window's host shim, which turns
+  them into synthetic events and drains them *before* live `NSEvent`s in the
+  same pump. Downstream — input HIDD → `input.device` → `console.device` →
+  Shell — nothing can tell an injected keystroke from a typed one.
+- **Screenshots come from an offscreen oracle.** `shot` reads the last rendered
+  target (BGRA → PNG/PPM), not the on-screen drawable, so capture is
+  deterministic and needs **no Screen-Recording / TCC approval** — the essential
+  property for an unattended loop.
 
-## The arc — three acts
+The full command set covers lifecycle (`run`, `status`, `stop`, `kill`,
+`wait`), input (`type`, `enter`, `key`, `cmdc`/`cmdv`, `mouse`, `wheel`,
+`click`, `button`, `menu`, `resize`), settings (`setting`, `clipboard`), and
+capture / introspection (`shot`, `record` for TCC-free `.mov` demos, `log`,
+`tasks` — which prints every task's state and backtrace even on a wedged guest —
+`crash`, `diag`, `libs`). The one-line `K`/`M`/`B`/`S` wire protocol is
+deliberately the shape of a future in-process `libAROS` input/capture API. See
+[docs/features/control-harness/](docs/features/control-harness/README.md).
 
-The objectives above were reached by separating the two hard problems and never
-working both at once. Full reasoning in [ROADMAP.md](ROADMAP.md).
+## Vision & roadmap
 
-### Act 1 — AArch64 backend on QEMU `virt` ✅
-A native 64-bit ARM bring-up on a fully observable target, each milestone gated by
-the loop. Detail in [PHASE1.md](PHASE1.md); every hardware fact grounded against
-the real DTB / Linux headers / QEMU source in [HARDWARE.md](HARDWARE.md).
+Three objectives, pursued so the two genuinely hard problems (the CPU backend;
+Apple-Silicon specifics) are never fought at the same time:
 
-| # | Milestone | What works |
-|---|-----------|-----------|
-| M1 | serial | EL1 entry, PL011 UART, clean semihosting exit |
-| M2 | C runtime | `.bss`/stack, `kprintf` |
-| M3 | exceptions | `VBAR_EL1`, vector table, SVC/BRK decode + recover |
-| M4 | MMU | identity map, `SCTLR.M`, verified translation fault |
-| M5 | timer IRQ | GICv2 + EL1 physical timer |
-| M6 | phys memory | free-list page allocator |
-| M7 | context switch | two cooperative tasks on separate stacks |
-| M8 | shell | UART RX + injected-keystroke command loop |
-| M9 | framebuffer | ramfb via fw_cfg, screendump-verified |
-| M10 | preemption | SIGALRM-as-timer preemptive multitasking |
+1. **A native AArch64 backend for AROS** — the greenfield CPU bring-up, proven
+   on QEMU. Reusable on every ARM64 target; the genuine standalone contribution.
+2. **AmigaOS as a native macOS app on Apple Silicon** — AROS as a hosted arm64
+   process, reaching every driver through macOS via exec I/O.
+3. **An embeddable, scriptable AROS** — an engine/shell split so AmigaOS can be
+   *driven and embedded*, not just booted. The direction is sketched in
+   [`hosted/libaros/IDEAS.md`](hosted/libaros/IDEAS.md): promote `aros-ctl`'s
+   `K`/`M`/`B`/`S` verbs into typed in-process calls, expose screen+input,
+   console, and lifecycle as host-agnostic seams, and turn AROS into a guest
+   *subsystem you call into* — embeddable in Mac software, drivable from CI or an
+   LLM agent, and eventually fused two-way with the host.
 
-### Act 2 — Hosted spikes on macOS ✅
-Rather than attempt the full port at once, **de-risk the scary parts
-cheapest-first** — each a standalone, grounded, loop-verified spike (`make
-hosted-*`, all green via `make hosted-test`). Detail in [PHASE2.md](PHASE2.md);
-the spikes map into the real AROS tree in [GRAFT.md](GRAFT.md).
+Remaining beyond today's state is polish and upstreaming: shaking out ABI edge
+cases, growing an app ecosystem, and submitting the AArch64 work to the AROS
+development tree. The full arc and rationale live in [ROADMAP.md](ROADMAP.md).
 
-| # | Spike | What it proves |
-|---|-------|----------------|
-| H1/H2 | foundation + preemption | our context switch runs at EL0 in a macOS process; SIGALRM + `mcontext` swap → hosted preemption |
-| H3 | host-call ABI | bridges AROS→Apple's arm64 variadic-on-stack ABI (the Darwin-PPC killer) |
-| H4/H5/H6 | exec shapes | real `core_Schedule`/`cpu_Switch`; `MemHeader`/`MemChunk` over `mmap`; the two composed |
-| H7 | display | AROS draws a framebuffer from its heap; macOS presents it |
-| H8 | library/LVO | a tiny `exec.library` via the real jump-vector mechanism + `SetFunction` |
-| H9–H12 | exec primitives | `Wait`/`Signal`, message ports, device→real-file `DoIO`, full exec boot |
+## Current status
 
-### Act 3 — The graft (porting the real AROS tree) 🔄
-Stop spiking and integrate the **real AROS source** for `darwin-aarch64`. This is
-where "what works today" was won. The starter patch set and build status are in
-[graft/README.md](graft/README.md); the integration map is
-[GRAFT.md](GRAFT.md); the live, reproducible build recipe is
-[graft/build-darwin-aarch64.sh](graft/build-darwin-aarch64.sh); the upstream-worthy
-friction is logged in [graft/UPSTREAM-NOTES.md](graft/UPSTREAM-NOTES.md) and the
-working method in [graft/WORKFLOW.md](graft/WORKFLOW.md).
+### Native AArch64 backend — complete, on QEMU `virt`
 
-## Hosted feature set
+The clean-room CPU bring-up is done and green in the unattended loop
+(`make test`), milestones M1–M10: serial / EL1 entry, C runtime, exception
+vectors (`VBAR_EL1`, SVC/BRK), MMU (identity map + translation faults), GICv2
+timer IRQ, a page allocator, cooperative **and** preemptive multitasking, an
+injected-keystroke Shell, and a framebuffer verified by screendump. Detail:
+[PHASE1.md](PHASE1.md) · [HARDWARE.md](HARDWARE.md).
 
-Each macOS host capability has a grounded **design** (the why + the AROS/Apple
-contracts) and an implementation **spec** under [docs/features/](docs/features/README.md).
-All apply the thesis — *macOS owns the drivers; AROS reaches them via standard
-exec I/O* — and all must verify in the unattended loop.
+### Hosted on Apple Silicon — AmigaOS boots to the desktop
 
-| Feature | One-line | Docs | Status |
-|---------|----------|------|--------|
-| Cocoa/Metal display | a live macOS window (AppKit + Metal) for the AROS desktop | [design](docs/features/cocoa-metal-display/design.md) · [spec](docs/features/cocoa-metal-display/spec.md) · [interface](docs/features/cocoa-metal-display/INTERFACE.md) | **built** |
-| Host app shell (Macaros) | menu bar, About, icon, two-tier Settings — a real Mac app | [design](docs/features/host-app-shell/design.md) · [spec](docs/features/host-app-shell/spec.md) | **built** |
-| Clipboard bridge | two-way copy/paste, `NSPasteboard` ↔ `clipboard.device` | [README](docs/features/clipboard-bridge/README.md) · [design](docs/features/clipboard-bridge/design.md) · [spec](docs/features/clipboard-bridge/spec.md) | **built** |
-| Control harness (`aros-ctl`) | puppet the windowed AROS headlessly, inside the loop | [README](docs/features/control-harness/README.md) · [design](docs/features/control-harness/design.md) · [spec](docs/features/control-harness/spec.md) | **built** |
-| Host volume | a real Mac folder mounted as an AROS volume, drag-from-Finder | [README](docs/features/host-volume/README.md) · [design](docs/features/host-volume/design.md) · [spec](docs/features/host-volume/spec.md) | **built** |
-| 68k JIT | host 68k→AArch64 translator for classic Amiga binaries (adopts [Emu68](THIRD-PARTY-NOTICES.md), MPL-2.0) | [design](docs/features/68k-jit/design.md) · [spec](docs/features/68k-jit/spec.md) · [interface](docs/features/68k-jit/INTERFACE.md) | **built** (`run68k`) |
-| CoreAudio audio | real sound via a CoreAudio-backed AHI sub-driver | [README](docs/features/coreaudio-audio/README.md) · [design](docs/features/coreaudio-audio/design.md) · [spec](docs/features/coreaudio-audio/spec.md) | **built** |
-| Host BSD sockets | working TCP/IP by forwarding `bsdsocket.library` to native sockets | [README](docs/features/bsdsocket-net/README.md) · [design](docs/features/bsdsocket-net/design.md) · [spec](docs/features/bsdsocket-net/spec.md) | **built** |
-| Native media (ffmpeg) | decode-only `libav*` built for AROS + **FFViewX / FFView** image + video viewer | [README](docs/features/ffmpeg-native/README.md) | **built** |
-| GPU 2D (gpufx) | GPU-accelerated YUV→RGB + scale via the cocoametal compute shim + a `gpufx.library` front door; FFViewX's video path runs on it (5–7×) | [README](docs/features/gpufx/README.md) | **built** |
-| Rust on AROS | full Rust `std` runs natively — net/fs/env/args/process/time/thread, verified live | [README](docs/features/rust-aros/README.md) · [build a program](hosted/rust/BUILDING-PROGRAMS.md) | **built** |
+Running as a native arm64 macOS process, **AROS boots all the way to a Wanderer
+desktop.** exec, kernel.resource, dos.library, and the full boot-module set come
+up, `SYS:` mounts, and the AmigaDOS **Shell runs typed commands** against the
+complete standard **C: command set (116 commands)**. Multitasking, W^X
+executable loading, and console I/O work.
 
-Supporting docs: the [feature index](docs/features/README.md) · the
-[CLEANROOM independent-work process](docs/features/CLEANROOM.md) that governs every
-spec · the [host-wake pattern](docs/features/host-wake-pattern.md) shared by the
-audio/socket/clipboard shims · [crash handling](docs/features/crash-handling/design.md) ·
-the [Darwin AArch64 port inventory](docs/features/darwin-aarch64-port-inventory.md)
-(gap map + active work order) ·
-the [debug & bring-up tools](docs/features/debug-tools/README.md).
+Hosted capabilities — each one "macOS owns the driver, AROS reaches it via exec
+I/O" applied to a surface:
 
-## Run classic 68k software — `run68k`
+| Surface | State | How |
+|---|---|---|
+| **Display** | ✅ built | Live Cocoa/Metal window; AROS-side `cocoa.hidd` over the full graphics/intuition/layers stack |
+| **Keyboard + mouse** | ✅ built | Same event path as real `NSEvent`s; drives Shell and desktop |
+| **Wheel scrolling** | ✅ built | End-to-end: host wheel → NewMouse rawkeys → `IDCMP_RAWKEY` |
+| **Native menus** | ✅ built | gadtools Intuition menu strips |
+| **Clipboard** | ✅ built | Two-way `NSPasteboard` ↔ `clipboard.device` (RAmiga-C/V) |
+| **Audio** | ✅ built | CoreAudio-backed AHI sub-driver |
+| **Networking** | ✅ built | `bsdsocket.library` forwarded to native sockets (TCP/IP + DNS) |
+| **Host volumes** | ✅ built | A Mac folder mounted as `MacRO:` / `MacRW:`, drag-from-Finder |
+| **Media** | ✅ built | ffmpeg decode + FFViewX/FFView viewer; `ffmpeg.datatype` with drag-and-drop |
+| **GPU 2D** | ✅ built | `gpufx.library` compute shim (YUV→RGB + scale, ~5–7× on the video path) |
+| **Rust `std`** | ✅ built | Runs natively — net, fs, env, args, process, time, thread verified live |
 
-Beyond the AArch64 *backend*, the repo includes a **68k→AArch64 JIT** that runs
-self-contained classic-Amiga **68k** programs — integer **and** 68881/68882
-**hardware floating-point** — directly on Apple Silicon, including real
-`vbcc`-compiled C, each byte-exact-verified against an independent interpreter.
-The **`run68k`** CLI runs a 68k Amiga **hunk executable** straight from your terminal:
+Every capability has a grounded design + spec under
+[docs/features/](docs/features/README.md).
+
+**Macaros**, the host wrapper, packages all of this as a double-clickable
+`.app` — menu bar, About panel, custom icon, schema-driven "AROS Settings"
+window — via `graft/make-aros-app.sh`.
+
+Two things worth calling out:
+
+- **A full GPUI application runs on booted AROS.**
+  [Feraille](https://github.com/jonx/Feraille) — a native file manager — boots
+  as `C:Feraille` through a from-scratch GPUI software-raster backend
+  (tiny-skia + cosmic-text, blitted via CyberGraphics), with complete themed
+  chrome, native Intuition menus, `asl.library` file requesters, and a real
+  `SYS:` listing. It's proof the hosted stack is a real application platform,
+  not just a booting kernel. (The app and its GPUI backend fork are developed in
+  sibling checkouts and are not yet upstreamed.)
+- **A 68k JIT (`run68k`)** runs self-contained classic-Amiga 68k binaries,
+  integer and 68881/68882 hardware FP, byte-exact-verified against an
+  independent interpreter. It vendors [Emu68](https://github.com/michalsc/Emu68)
+  (MPL-2.0) — the one non-clean-room component.
+
+## Getting started
+
+Requirements: an **Apple-Silicon Mac** (M1 or newer) with a recent macOS,
+`xcode-select --install`, and [Homebrew](https://brew.sh). This is an
+`aarch64-darwin`-only project — Intel and Linux are not targets.
+
+### Fast path — the 68k JIT, ~2 minutes, no AROS build
 
 ```sh
+brew install llvm lld
+git clone https://github.com/jonx/AROS-AArch64.git
+cd AROS-AArch64
 make run68k                                          # -> build/run68k
-build/run68k hosted/jit68k/apps68k/bin/mandel.exe    # prints a Mandelbrot, exit 0
-build/run68k hosted/jit68k/apps68k/bin/j5t.exe       # a vbcc-compiled hardware-FP program
+build/run68k hosted/jit68k/apps68k/bin/mandel.exe    # renders a Mandelbrot, exits 0
 ```
 
-The program's output goes to stdout (pipe-able), the exit code is the program's
-own `D0`, and any fault writes a self-contained **crash-bundle** `.tar.gz`. It runs
-*system-friendly* 68k software — a CPU+FPU JIT with a stub OS, not a full-chipset
-emulator. **Full docs: [hosted/jit68k/run68k.md](hosted/jit68k/run68k.md)** ·
-sample programs: [hosted/jit68k/apps68k/README.md](hosted/jit68k/apps68k/README.md) ·
-design: [docs/features/68k-jit/](docs/features/68k-jit/design.md).
+Full 68k usage — hunk executables, stdout piping, crash bundles — is in
+[hosted/jit68k/run68k.md](hosted/jit68k/run68k.md).
 
-> **Third-party code:** unlike the rest of this repo, the JIT is **not**
-> clean-room. Its 68k decoders and AArch64 emitter are adopted from
-> **[Emu68](https://github.com/michalsc/Emu68) (MPL-2.0)**, vendored verbatim in
-> `hosted/jit68k/emu68/` behind a documented license boundary; our engine, loader,
-> and OS bridge link to them but copy no Emu68 code. Full disclosure:
-> [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+### Full path — build and boot hosted AROS
+
+Lay the two repos side by side (scripts assume `../aros-upstream`):
+
+```sh
+git clone https://github.com/jonx/AROS-AArch64.git aros-aarch64
+git clone -b aarch64-darwin-graft https://github.com/jonx/AROS.git aros-upstream
+```
+
+Install the host build prerequisites:
+
+```sh
+brew install llvm lld cmake zstd autoconf automake gawk bison flex netpbm libpng gnu-sed
+python3 -m pip install mako --break-system-packages
+```
+
+You do **not** install a cross-compiler by hand — AROS's `configure
+--with-toolchain=llvm` builds its own pinned **clang / LLVM 20.1.0** targeting
+`aarch64-unknown-aros` (a one-time ~1–2 h compile; the resulting `crosstools`
+directory is then reused). A bare `make` will try to rebuild that toolchain and
+break — use the runnable recipe, which wraps the whole build into a stable,
+reusable tree:
+
+```sh
+graft/build-darwin-aarch64.sh        # builds hosted AROS into ~/aros-build,
+                                     # toolchain into ~/aros-crosstools (both stable, reusable)
+```
+
+Then build the host shims, deploy, and run:
+
+```sh
+make cocoametal-dylib pasteboard-dylib coreaudio-dylib bsdsock-dylib
+graft/aros-ctl deploy                          # stage shims + Cocoa monitor into the boot tree
+AROS_CTL_STARTUP_MODE=desktop graft/run-window.sh   # boot to the Wanderer desktop
+graft/make-aros-app.sh                          # -> build/Macaros.app (double-clickable)
+graft/aros-ctl run                              # ...or drive it headlessly (type / click / shot)
+```
+
+Full prerequisites, the sibling-checkout layout, toolchain notes, and the
+build/deploy gotchas are in **[GETTING-STARTED.md](GETTING-STARTED.md)**,
+[docs/features/build/README.md](docs/features/build/README.md), and
+[docs/features/deployment/README.md](docs/features/deployment/README.md).
 
 ## Repository layout
 
-Work spans **two sibling checkouts** — this repo (the host layer) and a separate
-AROS OS-source tree (the [jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft)
-fork, branch `aarch64-darwin-graft`).
+Work spans **two sibling checkouts** — this repo (the host layer) and the
+separate AROS OS-source tree (the
+[jonx/AROS](https://github.com/jonx/AROS/tree/aarch64-darwin-graft) fork,
+branch `aarch64-darwin-graft`).
 
 ```
 aros-aarch64/                     ← THIS repo (the graft / host layer)
-├── boot/        Act-1 bare-metal AArch64 kernel: start.S, mmu.c, irq.c, task.c, fb.c …
-├── harness/     the unattended loop: run.sh, run-hosted.sh, qmp.py, lldb-dump.sh, test.sh
-├── hosted/      Act-2 spikes (host.c, preempt.c, abishim.*, exec.c …) + the real host shims:
-│   ├── cocoametal/   the Cocoa/Metal display + Macaros app + control FIFO (dylib)
-│   ├── clipboard/    the NSPasteboard ↔ clipboard.device bridge (libpasteboard.dylib)
-│   ├── hostvolume/   the Mac-folder-as-AROS-volume handler
-│   ├── coreaudio/    CoreAudio AHI sub-driver shim          (see also hostshell/, libaros/)
-│   ├── bsdsocket/    bsdsocket.library → native sockets pump
+├── boot/        Bare-metal AArch64 kernel for QEMU virt: start.S, mmu.c, irq.c, task.c, fb.c …
+├── harness/     The unattended loop: run.sh, run-hosted.sh, qmp.py, lldb-dump.sh, test.sh
+├── hosted/      Host shims + the embeddable-engine work:
+│   ├── cocoametal/   Cocoa/Metal display + Macaros app + control FIFO
+│   ├── clipboard/    NSPasteboard ↔ clipboard.device bridge
+│   ├── hostvolume/   Mac-folder-as-AROS-volume handler
+│   ├── coreaudio/    CoreAudio AHI sub-driver
+│   ├── bsdsocket/    bsdsocket.library → native sockets
 │   ├── ffmpeg/       libav* built native for AROS + FFViewX/FFView viewer
 │   ├── gpufx/        GPU 2D (YUV→RGB + scale) compute shim + gpufx.library
-│   ├── rust/         Rust std port for AROS + the RustHello sample   (STD-PORT.md)
-│   └── jit68k/       the 68k→AArch64 JIT + the run68k CLI    (run68k.md)
-├── graft/       the AArch64-darwin patch set + build/run scripts for the OS tree:
-│   ├── build-darwin-aarch64.sh / run-window.sh / make-aros-app.sh / make-aros-release.sh / aros-ctl
-│   ├── cpu_aarch64.h, cpucontext-aarch64.h, configure-darwin-aarch64.diff   (seed patches)
-│   └── README.md, WORKFLOW.md, UPSTREAM-NOTES.md, CONTINUATION.md, cocoa-display-handoff.md
-├── docs/features/   grounded design + spec per host capability (table above)
-└── ROADMAP / PHASE1 / PHASE2 / GRAFT / HARDWARE / NOTES   the planning + decision log
+│   ├── rust/         Rust std port for AROS
+│   ├── jit68k/       the 68k→AArch64 JIT + the run68k CLI
+│   └── libaros/      the embeddable-engine direction (IDEAS.md)
+├── graft/       AArch64-darwin patch set, build/run scripts, and the aros-ctl harness
+├── docs/features/   grounded design + spec per capability (index: docs/features/README.md)
+└── ROADMAP / PHASE1 / PHASE2 / GRAFT / HARDWARE / NOTES / TODO / CLAUDE   planning + decisions
 
-../aros-upstream/                 ← the actual AROS OS source — jonx/AROS fork, branch aarch64-darwin-graft
+../aros-upstream/                 ← the AROS OS source — jonx/AROS fork, branch aarch64-darwin-graft
                                      rom/, workbench/, arch/all-darwin, arch/aarch64-all …
-                                     edited & committed there; clone with:
-                                       git clone -b aarch64-darwin-graft https://github.com/jonx/AROS.git ../aros-upstream
 ```
 
-### Doc map — start here
+## Contributing
 
-| If you want… | Read |
-|--------------|------|
-| To get from an empty Mac to a running system | [GETTING-STARTED.md](GETTING-STARTED.md) |
-| The big-picture arc & rationale | [ROADMAP.md](ROADMAP.md) |
-| The architecture + decision log (and bugs grounding caught) | [NOTES.md](NOTES.md) |
-| The host-side code map (shims, spikes, what's built vs. an idea) | [hosted/README.md](hosted/README.md) |
-| Third-party code & licenses (the Emu68 / MPL-2.0 adoption) | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) |
-| Act-1 milestone checklist | [PHASE1.md](PHASE1.md) · [HARDWARE.md](HARDWARE.md) |
-| Act-2 spike list | [PHASE2.md](PHASE2.md) |
-| How the spikes map into the real AROS tree | [GRAFT.md](GRAFT.md) |
-| Current hosted-AROS state (resume here) | [graft/CONTINUATION.md](graft/CONTINUATION.md) |
-| The graft patch set & build status | [graft/README.md](graft/README.md) · [graft/WORKFLOW.md](graft/WORKFLOW.md) · [graft/UPSTREAM-NOTES.md](graft/UPSTREAM-NOTES.md) |
-| The hosted features (built & planned) | [docs/features/README.md](docs/features/README.md) |
-| Where AROS-as-an-embeddable-library is heading | [hosted/libaros/IDEAS.md](hosted/libaros/IDEAS.md) |
+Experimental and actively developed. Expect rough edges, and read
+[SECURITY.md](SECURITY.md) before pointing it at anything sensitive. Issues and
+small, focused PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md), and
+[CLAUDE.md](CLAUDE.md) for the operating manual (including the clean-room
+independent-work process every host feature follows).
 
-## Provenance & licensing
+## License
 
-This repo is licensed under the **AROS Public License** ([LICENSE](LICENSE), APL
-1.1, MPL-derived) — the same license AROS itself uses, so anything destined for
-upstream carries over cleanly. The host-side feature work is **independent
-work** — written from public APIs, published standards, the AROS tree, and this
-project's own spikes, under the [independent-work process](docs/features/CLEANROOM.md);
-no third-party implementation source was read or consulted, and any resemblance is
-coincidental.
+This repo is licensed under the **AROS Public License** ([LICENSE](LICENSE),
+APL 1.1, MPL-derived) — the same license AROS itself uses, so anything destined
+for upstream carries over cleanly. The host-side work is **independent /
+clean-room** — written from public APIs, published standards, the AROS tree, and
+this project's own spikes; no third-party implementation source was consulted.
 
-**One deliberate exception:** the 68k JIT (`run68k`) adopts **Emu68** (MPL-2.0) as
-vendored, isolated files under a documented license boundary — it is not
-clean-room, and its files are not AROS-licensed. This is the repo's only
-third-party code; see **[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)** and
-[hosted/jit68k/emu68/NOTICE](hosted/jit68k/emu68/NOTICE).
-
-## Status & contributing
-
-Experimental and actively developed, as a hobby project. Expect rough edges,
-and read [SECURITY.md](SECURITY.md) before pointing it at anything sensitive.
-Issues and small, focused PRs are welcome: see
-[CONTRIBUTING.md](CONTRIBUTING.md). Release notes live in
-[CHANGELOG.md](CHANGELOG.md).
-</content>
+**One deliberate exception:** the 68k JIT (`run68k`) vendors
+**[Emu68](https://github.com/michalsc/Emu68)** (MPL-2.0) as isolated files
+behind a documented license boundary — not clean-room, not AROS-licensed. It is
+the repo's only third-party code. Full disclosure:
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
