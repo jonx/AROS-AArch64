@@ -11,6 +11,9 @@
 - Fixed a stuck mouse button (a Wanderer drag rectangle) left after a window
   resize, caused by the resize grab's button-down being delivered to AROS after
   AppKit's modal live-resize loop rather than before it.
+- View ▸ Resolution menu: pick a standard size (640×480 up to 2560×1600)
+  straight from the menu bar instead of dragging the window; the current size
+  is checkmarked.
 
 ## 2026-07-21 - host deadlock fix
 
