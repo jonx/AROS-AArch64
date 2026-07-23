@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-24 - Clock reads the real date
+
+- Hosted AROS now boots with the correct date and time. The clock was starting
+  at an ~1978 epoch because the boot never seeded it from the Mac, so every file
+  timestamp and `Date` was wrong. The boot now runs `SetClock LOAD`, which reads
+  the host wall-clock through the existing battclock bridge, so timestamps and
+  logs are right from a fresh boot.
+
 ## 2026-07-23 - Zed editor-core boots on AROS
 
 - The real GPL Zed `editor` crate now boots on hosted AROS. `C:ZedAros` opens a
