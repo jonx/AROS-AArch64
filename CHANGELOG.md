@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-07-24 - Non-blocking sockets for async networking
+
+- Sockets can now run in real non-blocking mode. Setting a socket non-blocking
+  (`FIONBIO`) makes a call that would wait return a would-block status right away
+  instead of stalling, which is what an async runtime (the reactor behind
+  `tokio`/`async-io`) needs to drive many connections at once. Blocking sockets
+  are unchanged. This unblocks the networked side of the editor port (HTTP, LSP
+  over the network, the agent panel). Verified live end to end.
+
 ## 2026-07-24 - Clock reads the real date
 
 - Hosted AROS now boots with the correct date and time. The clock was starting
