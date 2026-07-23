@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-23 - Zed editor-core boots on AROS
+
+- The real GPL Zed `editor` crate now boots on hosted AROS. `C:ZedAros` opens a
+  native window rendering an editor buffer with line numbers and the base theme,
+  through the gpui_aros CPU backend, with networking, wasm, and terminal
+  stubbed. This is the "minimal editor-core" path (a `zed_aros_app` staticlib
+  entry over the whole `editor` dependency graph, ~50 crates given AROS arms),
+  distinct from the Apache gpui-component editor that already shipped file + LSP
+  support. Build and boot it with `hosted/zed/build.sh`. Typed input into the
+  window is not wired yet. See
+  [docs/features/zed-editor](docs/features/zed-editor/README.md#the-zed-crate-boot-editor-core-on-aros).
+
 ## 2026-07-22 - dynamic display resolution
 
 - The Macaros window is resizable and the AROS screen resolution follows in
