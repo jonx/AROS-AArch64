@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-24 - Per-thread errno
+
+- Each thread now has its own `errno`. It used to be shared across the whole
+  program, so two threads failing system calls at the same time could read each
+  other's error code and misreport what went wrong. This matters for the
+  multi-threaded async runtime the editor port is built on. Non-threaded
+  programs are unaffected. Verified live.
+
 ## 2026-07-24 - Non-blocking sockets for async networking
 
 - Sockets can now run in real non-blocking mode. Setting a socket non-blocking
