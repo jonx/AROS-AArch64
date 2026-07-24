@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-24 - Zed workspace: tabs, syntax highlighting, status bar
+
+- `C:ZedAros` now boots the real Zed **Workspace** on AROS, not just a bare
+  editor: opening a file (`ZedAros MacRW:foo.rs`) shows it in a pane with an
+  editor **tab** and the window title tracking the file, through a real Zed
+  `Project` reading the AROS filesystem.
+- **Syntax highlighting** works (tree-sitter grammars registered directly, and
+  the syntax theme applied to them) — keywords, types, strings, and comments are
+  colored.
+- The **status bar** renders with a live cursor-position (Ln:Col) item plus an
+  AROS marker. Networking/wasm/terminal stay stubbed; the file tree and the
+  language-picker status item are deferred (they pull an embedded-database
+  dependency that needs OS primitives AROS lacks). See
+  [docs/features/zed-editor](docs/features/zed-editor/README.md#the-zed-crate-boot-editor-core-on-aros).
+
 ## 2026-07-24 - Per-thread errno
 
 - Each thread now has its own `errno`. It used to be shared across the whole
