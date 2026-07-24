@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-07-24 - Async networking runs on AROS
+
+- The async networking stack (`async-io`/`mio`/`tokio`) now drives real sockets
+  on hosted AROS, verified with a live async TCP round-trip. This is the
+  foundation the editor's networked features sit on (HTTP, language servers over
+  the network, the agent panel). Two pieces made it work: a reactor that reports
+  socket readiness through `bsdsocket` `WaitSelect`, and a small unified-fd shim
+  so the Rust socket crates — which drive sockets as ordinary file descriptors —
+  work against AROS, where sockets and files live in separate descriptor spaces.
+  See [docs/features/zed-editor/os-requirements.md](docs/features/zed-editor/os-requirements.md).
+
 ## 2026-07-24 - Pipes for live tools (PIPE: + readiness)
 
 - `PIPE:` is now mounted on every boot, and its handler gained what an async
