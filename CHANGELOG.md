@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-07-24 - Pipes for live tools (PIPE: + readiness)
+
+- `PIPE:` is now mounted on every boot, and its handler gained what an async
+  runtime needs to stream a child process's output live: a read-readiness signal
+  (tell me when this pipe has data, delivered as a signal the reactor can wait on
+  alongside sockets), a non-blocking mode (reads return "would block" instead of
+  stalling), and a fix so ordinary reads return as soon as data is available
+  instead of hanging until the buffer fills. This is the groundwork for running a
+  language server or build tool directly on AROS and for the integrated terminal.
+  Verified live end to end.
+
 ## 2026-07-24 - Zed workspace: tabs, syntax highlighting, status bar
 
 - `C:ZedAros` now boots the real Zed **Workspace** on AROS, not just a bare
