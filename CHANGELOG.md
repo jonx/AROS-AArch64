@@ -21,9 +21,13 @@
   the syntax theme applied to them) — keywords, types, strings, and comments are
   colored.
 - The **status bar** renders with a live cursor-position (Ln:Col) item plus an
-  AROS marker. Networking/wasm/terminal stay stubbed; the file tree and the
-  language-picker status item are deferred (they pull an embedded-database
-  dependency that needs OS primitives AROS lacks). See
+  AROS marker.
+- The **file tree** (project panel) works: `ZedAros MacRW:proj` opens a folder
+  and shows its contents in a dock, read live from the AROS filesystem. (Its
+  git-status integration is off on AROS, since that path pulled an
+  embedded-database dependency needing OS primitives AROS lacks.)
+- A minimal **app menu** (File / Edit / Quit) via native Intuition menus
+  (right-mouse-button). Networking/wasm/terminal stay stubbed. See
   [docs/features/zed-editor](docs/features/zed-editor/README.md#the-zed-crate-boot-editor-core-on-aros).
 
 ## 2026-07-24 - Per-thread errno
