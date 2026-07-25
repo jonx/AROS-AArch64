@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-25 - Zed: live language-server diagnostics
+
+- The editor now shows **real rust-analyzer diagnostics** on AROS: open a Rust
+  file and genuine errors are underlined in the code and marked in the scrollbar,
+  answered by a real language server analysing the project. The server runs on
+  the Mac and the editor talks to it over a socket, since AROS cannot yet run
+  rust-analyzer itself.
+- Two fixes made it work. File paths now translate between AROS volumes and the
+  host, so the editor and the language server agree on which file is being
+  discussed (before this, no server ever started). And a long-standing hazard in
+  the Rust runtime's `readlink` was fixed: when the filesystem reported "buffer
+  too small" for something that is not a symlink, it kept doubling its buffer
+  until memory ran out and the program died. It now gives up cleanly. This one
+  affected any Rust program on AROS that inspects paths, not just the editor.
+
 ## 2026-07-24 - Async networking runs on AROS
 
 - The async networking stack (`async-io`/`mio`/`tokio`) now drives real sockets
