@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-25 - Programs can talk to programs they start
+
+- A Rust program on AROS can now **run another program and talk to it while it
+  runs**: read its output as it appears rather than only after it finishes, send
+  it input, and be told when it exits along with its real exit code. Before this,
+  starting a program meant waiting for it to end and only then reading what it
+  wrote. This is what an editor needs to host a language server or a build tool
+  on AROS itself, and it is the groundwork for a real terminal.
+- Two things had to be worked around. AROS's shell reports every failure as the
+  same generic error, so the actual exit code is now read from where the shell
+  keeps it. And a program started without anything to type at it used to inherit
+  the console and wait forever for input that was never coming; it now gets an
+  empty input instead.
+
+
 ## 2026-07-25 - Zed stops freezing, and shows live diagnostics
 
 - The editor no longer freezes after a minute of use, and **rust-analyzer errors
