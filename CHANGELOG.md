@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-07-25 - The real Zed editor runs on AROS
+
+- `C:Zed` is now **Zed's own binary**, not a shim built over its editor crates.
+  It opens a project and shows the real thing: a file tree you can expand, editor
+  tabs, breadcrumbs, syntax highlighting, a status bar, and the side panels.
+- Three fixes got it from "links" to "usable". Zed's tokio runtime on AROS has no
+  I/O driver, so every HTTP request (telemetry, registry fetches) panicked a
+  worker thread seconds after startup and took the editor down; AROS now uses
+  Zed's offline HTTP client, which the language server does not go through.
+  And the file tree would not expand a single folder: every file reported the
+  same file id, which the project scanner reads as a symlink loop. The Rust
+  runtime on AROS now reports real file ids, which any program that identifies
+  files this way needed anyway.
+- Not there yet: external file changes are not noticed while the editor is open,
+  and the language server still runs on the Mac rather than on AROS.
+
 ## 2026-07-25 - The window boots at 1366x768
 
 - AROS now comes up at **1366x768** instead of 800x600. The desktop has to be
