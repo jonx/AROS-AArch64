@@ -1,11 +1,20 @@
 # Changelog
 
+## 2026-07-25 - Zed stops freezing, and shows live diagnostics
+
+- The editor no longer freezes after a minute of use, and **rust-analyzer errors
+  now appear** as red underlines with an error count in the status bar. Both were
+  the same bug: a lock library used across the Rust ecosystem has no AROS support,
+  so when a thread waited for a lock it spun in a tight loop instead of sleeping.
+  AROS gives threads of equal priority equal turns, so that one spinning thread
+  starved every other one, including the editor's own display thread and the one
+  reading the language server's replies. Threads now sleep properly on AROS.
+- The editor **window can be resized** by dragging its size gadget, and the layout
+  reflows with it. It asked for a size gadget but never declared how small or
+  large it could get, and AROS then pins a window to the size it opened at.
+
 ## 2026-07-25 - The real Zed editor runs on AROS
 
-- The editor window can now be **resized** by dragging its size gadget, and the
-  whole layout reflows with it. It asked Intuition for a size gadget but never
-  said how small or large it was allowed to get, and Intuition then pins a window
-  to the size it opened at, so the gadget was there but did nothing.
 - `C:Zed` is now **Zed's own binary**, not a shim built over its editor crates.
   It opens a project and shows the real thing: a file tree you can expand, editor
   tabs, breadcrumbs, syntax highlighting, a status bar, and the side panels.
