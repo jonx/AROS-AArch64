@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-25 - The window boots at 1366x768
+
+- AROS now comes up at **1366x768** instead of 800x600. The desktop has to be
+  idle to change resolution, so the size you boot into is the one you get to
+  work in, and 800x600 was too small for a real editor window. The mode ladder
+  is unchanged, so dragging the window edge still snaps through all 16 modes.
+
 ## 2026-07-25 - Zed: live language-server diagnostics
 
 - The editor now shows **real rust-analyzer diagnostics** on AROS: open a Rust
