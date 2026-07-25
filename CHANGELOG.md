@@ -2,6 +2,10 @@
 
 ## 2026-07-25 - The real Zed editor runs on AROS
 
+- The editor window can now be **resized** by dragging its size gadget, and the
+  whole layout reflows with it. It asked Intuition for a size gadget but never
+  said how small or large it was allowed to get, and Intuition then pins a window
+  to the size it opened at, so the gadget was there but did nothing.
 - `C:Zed` is now **Zed's own binary**, not a shim built over its editor crates.
   It opens a project and shows the real thing: a file tree you can expand, editor
   tabs, breadcrumbs, syntax highlighting, a status bar, and the side panels.
