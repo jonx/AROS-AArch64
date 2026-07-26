@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-07-26 - A working terminal inside the editor, and a fix for random crashes
+
+- **Zed's terminal panel runs a real AROS shell.** Open it, type a command, see
+  its output. AROS has no pseudo-terminal, which was assumed to be a hard
+  prerequisite; it turns out not to be. Two pieces were missing. AROS starts two
+  kinds of shell and only asks you which if you know to ask: the default runs one
+  command and exits, which is what running a command means and is useless as a
+  terminal. And with no terminal device, nothing echoes what you type or moves
+  the cursor to the start of the next line, so the terminal does both itself.
+- Still missing without a pseudo-terminal: the shell is not told how big the
+  window is, so full-screen programs have nothing to fit themselves to; there is
+  no way to interrupt a running command; and there is no prompt.
+- **Rust programs no longer corrupt memory at random.** A background thread was
+  given a quarter of the stack space the same code gets everywhere else. AROS
+  puts nothing between one task's stack and whatever is below it, so running off
+  the end quietly overwrites something else, and the crash lands somewhere
+  unrelated minutes later. The same overflow had been showing up as three
+  different, equally misleading failures. Threads now get the usual 2 MB.
+- **A failed program launch now says why.** Every failure used to come back as
+  "command could not be run", whatever had actually gone wrong.
+
 ## 2026-07-25 - Programs can talk to programs they start
 
 - A Rust program on AROS can now **run another program and talk to it while it
