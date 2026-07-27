@@ -20,12 +20,12 @@
   different, equally misleading failures. Threads now get the usual 2 MB.
 - **A failed program launch now says why.** Every failure used to come back as
   "command could not be run", whatever had actually gone wrong.
-- Known limitation, measured rather than guessed: a command that writes its
-  output a few characters at a time is slow in the terminal. Listing a folder of
-  180 files takes about a minute and then appears all at once, where the same
-  amount of text written in larger pieces takes under a second. Nothing is lost,
-  and every write to a pipe on AROS costs a round-trip, so this is the cost of
-  the writing being finely divided.
+- Known limitation: in the terminal, output from a separate command (`Dir`, say)
+  does not appear until you type the next command, while output from something
+  the shell does itself (`Echo`) appears at once. AROS holds writes to a pipe in
+  a buffer and only empties it when full, where it empties a console's after
+  every line. Nothing is lost, only late. Fixing it properly belongs on the AROS
+  side.
 
 ## 2026-07-25 - Programs can talk to programs they start
 
