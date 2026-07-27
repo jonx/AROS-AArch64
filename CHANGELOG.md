@@ -20,6 +20,12 @@
   different, equally misleading failures. Threads now get the usual 2 MB.
 - **A failed program launch now says why.** Every failure used to come back as
   "command could not be run", whatever had actually gone wrong.
+- Known limitation, measured rather than guessed: a command that writes its
+  output a few characters at a time is slow in the terminal. Listing a folder of
+  180 files takes about a minute and then appears all at once, where the same
+  amount of text written in larger pieces takes under a second. Nothing is lost,
+  and every write to a pipe on AROS costs a round-trip, so this is the cost of
+  the writing being finely divided.
 
 ## 2026-07-25 - Programs can talk to programs they start
 
