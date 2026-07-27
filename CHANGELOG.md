@@ -37,10 +37,12 @@
 - **Changes made to a file outside the editor are picked up** after all: a file
   created on the Mac appears in the tree, and an edit to an open file reloads it.
   This was listed as missing on 2026-07-25 and was fixed, unnoticed, by the path
-  handling that went in the same day. It is slow, though, taking up to a minute
-  or so: AROS has no way to report a change, so the editor has to look, and
-  looking means walking the whole project over the host filesystem -- including
-  build directories, in a project with nothing marking them as ignorable.
+  handling that went in the same day. It is slow, though: a new file showed up
+  within half a minute and a changed one took between half a minute and a
+  minute and a half, against a two-second polling interval on a nineteen-file
+  project. Why it is that much slower than it asks to be is not yet established.
+  AROS cannot report a change, so the editor has to keep looking, and a way for
+  it to be told instead is the real fix.
 
 ## 2026-07-25 - Programs can talk to programs they start
 
