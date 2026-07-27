@@ -29,6 +29,18 @@
 - **The keyboard layout is applied on every boot**, not only when starting the
   desktop. A plain boot came up US whatever the layout was set to, and since
   everything reads the keyboard the same way, so did the editor.
+- **The terminal opens on a bare prompt**, the way a shell should. The working
+  directory used to be applied by typing a `CD` at the shell, and the editor's
+  environment by typing a `Set` for each variable, so a new terminal opened on a
+  stack of prompts for commands nobody had typed. AROS can give a new program its
+  directory outright, and nothing on AROS reads the variables an editor sets.
+- **Changes made to a file outside the editor are picked up** after all: a file
+  created on the Mac appears in the tree, and an edit to an open file reloads it.
+  This was listed as missing on 2026-07-25 and was fixed, unnoticed, by the path
+  handling that went in the same day. It is slow, though, taking up to a minute
+  or so: AROS has no way to report a change, so the editor has to look, and
+  looking means walking the whole project over the host filesystem -- including
+  build directories, in a project with nothing marking them as ignorable.
 
 ## 2026-07-25 - Programs can talk to programs they start
 
@@ -71,8 +83,9 @@
   same file id, which the project scanner reads as a symlink loop. The Rust
   runtime on AROS now reports real file ids, which any program that identifies
   files this way needed anyway.
-- Not there yet: external file changes are not noticed while the editor is open,
-  and the language server still runs on the Mac rather than on AROS.
+- Not there yet: the language server still runs on the Mac rather than on AROS.
+  (External file changes *are* noticed, contrary to what this entry first said;
+  see the 2026-07-27 entry.)
 
 ## 2026-07-25 - The window boots at 1366x768
 
