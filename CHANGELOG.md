@@ -20,12 +20,15 @@
   different, equally misleading failures. Threads now get the usual 2 MB.
 - **A failed program launch now says why.** Every failure used to come back as
   "command could not be run", whatever had actually gone wrong.
-- Known limitation: in the terminal, output from a separate command (`Dir`, say)
-  does not appear until you type the next command, while output from something
-  the shell does itself (`Echo`) appears at once. AROS holds writes to a pipe in
-  a buffer and only empties it when full, where it empties a console's after
-  every line. Nothing is lost, only late. Fixing it properly belongs on the AROS
-  side.
+- **The terminal shows a prompt, and output appears as it is written.** Both were
+  the same AROS bug: writes to a pipe were held in a buffer until it filled,
+  where writes to a screen are sent after every line. So a command like `Dir`
+  seemed to do nothing until you typed the next one, and the shell printed no
+  prompt, having concluded from its input that nobody was there. Pipes are now
+  treated as what they are.
+- **The keyboard layout is applied on every boot**, not only when starting the
+  desktop. A plain boot came up US whatever the layout was set to, and since
+  everything reads the keyboard the same way, so did the editor.
 
 ## 2026-07-25 - Programs can talk to programs they start
 
