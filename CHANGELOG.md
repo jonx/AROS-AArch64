@@ -34,6 +34,12 @@
   environment by typing a `Set` for each variable, so a new terminal opened on a
   stack of prompts for commands nobody had typed. AROS can give a new program its
   directory outright, and nothing on AROS reads the variables an editor sets.
+- **Errors from file operations on worker threads now arrive at all.** The C
+  runtime keeps errno per-thread for the editor's own code, but the system
+  libraries it calls write a single shared cell that nothing on the thread
+  side read -- so any failure they reported was invisible, which is the root
+  of every "failed with no reason" symptom this week. The runtime now reads
+  both places.
 - **The editor now knows the filesystem is case-insensitive.** Its check
   creates a file and then the same name in uppercase, expecting "already
   exists" as the answer on a filesystem like ours. That answer was being
