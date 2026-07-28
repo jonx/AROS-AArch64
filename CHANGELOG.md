@@ -34,6 +34,16 @@
   environment by typing a `Set` for each variable, so a new terminal opened on a
   stack of prompts for commands nobody had typed. AROS can give a new program its
   directory outright, and nothing on AROS reads the variables an editor sets.
+- **A file operation that fails now says why.** AROS reports failures through a
+  channel that does not reliably reach the one the Rust runtime reads, so asking
+  about a file that is not there came back as a failure with no reason attached,
+  which a caller cannot tell apart from a broken disk. It matters most to the
+  file watcher: the editor's language server rebuilds constantly, creating and
+  deleting working directories as it goes, and the watcher regularly asks about
+  one that has just been deleted. Told "gone" it steps over it; told nothing it
+  abandoned the scan. An external edit now shows up in twenty to thirty seconds
+  rather than upwards of a minute, though that is one measurement and the
+  polling is still the underlying cost.
 - **Changes made to a file outside the editor are picked up** after all: a file
   created on the Mac appears in the tree, and an edit to an open file reloads it.
   This was listed as missing on 2026-07-25 and was fixed, unnoticed, by the path
