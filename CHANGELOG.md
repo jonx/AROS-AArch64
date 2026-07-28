@@ -34,6 +34,14 @@
   environment by typing a `Set` for each variable, so a new terminal opened on a
   stack of prompts for commands nobody had typed. AROS can give a new program its
   directory outright, and nothing on AROS reads the variables an editor sets.
+- **The editor now knows the filesystem is case-insensitive.** Its check
+  creates a file and then the same name in uppercase, expecting "already
+  exists" as the answer on a filesystem like ours. That answer was being
+  mistranslated (first into nothing at all, then into "not found" by an
+  incomplete translation table of ours), so the check errored and guessed
+  wrong. The translation now comes from the system's own table. The wrong
+  guess was mostly harmless -- it made the editor treat differently-cased
+  names as different files, which the filesystem does not.
 - **A file operation that fails now says why.** AROS reports failures through a
   channel that does not reliably reach the one the Rust runtime reads, so asking
   about a file that is not there came back as a failure with no reason attached,
