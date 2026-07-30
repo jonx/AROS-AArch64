@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-07-30 - the terminal grows an interrupt key, and the editor stops guessing about files
+
+- **Ctrl-C stops a running command in the terminal.** The Amiga break
+  convention, wired end to end: the terminal consumes the keystroke and
+  delivers the break signal to the shell's process, which the running command
+  shares. A `Wait 60` dies in the time it takes to press the key. This also
+  gives the editor's own stop-a-task buttons real meaning, and required fixing
+  a small OS gap on the way: the tag that promises a new shell's CLI number
+  has been declared since the nineties and implemented never.
+- **The editor notices outside changes in about a second, not half a minute.**
+  AROS cannot report file changes, so the editor had been walking the project
+  on a timer. It now asks the Mac underneath, which does know, and is told
+  about each folder as it changes. Folders on volumes not shared with the Mac
+  keep the old behaviour.
+- **The window title shows real punctuation.** The title bar speaks Latin-1
+  and the editor speaks UTF-8, so the dash between project and filename
+  arrived as three stray glyphs. Typographic characters now fold to their
+  plain equivalents at the boundary.
+- The phantom "threads sidebar" button is gone: it toggled a panel that does
+  not exist on AROS, doing nothing except hiding itself.
+
 ## 2026-07-26 - A working terminal inside the editor, and a fix for random crashes
 
 - **Zed's terminal panel runs a real AROS shell.** Open it, type a command, see
