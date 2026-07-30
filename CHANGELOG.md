@@ -34,6 +34,13 @@
   environment by typing a `Set` for each variable, so a new terminal opened on a
   stack of prompts for commands nobody had typed. AROS can give a new program its
   directory outright, and nothing on AROS reads the variables an editor sets.
+- **The editor notices outside changes in about a second, not half a minute.**
+  AROS has no way to report file changes, so the editor had been looking for
+  them: walking the project on a timer, which is both slow and wasteful. It now
+  asks the Mac underneath instead, which does know, and gets told about each
+  folder as it changes. A file created on the Mac shows up in the tree in about
+  two seconds where it used to take twenty to thirty. Folders on volumes that
+  are not shared with the Mac keep the old behaviour.
 - **Errors from file operations on worker threads now arrive at all.** The C
   runtime keeps errno per-thread for the editor's own code, but the system
   libraries it calls write a single shared cell that nothing on the thread
