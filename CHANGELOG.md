@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-08-01 - Macaros 0.2: three applications, on the desktop, in one download
+
+- **The desktop has application icons now.** Macaros boots to Wanderer with
+  Zed, Ferail and Moonstone sitting on the backdrop, each with its own
+  artwork, each one double-click away. They stay in `C:` as well, so the shell
+  keeps working exactly as before.
+- **Moonstone ships with the release.** The game and the assets it reads are
+  embedded in the bundle, so it runs on a Mac that has never seen the source
+  tree. Its music is left out: those files are decoded but nothing plays them
+  until AROS has an audio backend for them.
+- **Real icons, not the four-colour kind.** A generator turns each project's
+  own artwork into a Workbench icon. AROS could already read this icon format
+  but threw away the one field that says what the icon *is*, so every such
+  icon was mistaken for a document; that is fixed in the OS side.
+- **Two reasons an icon launch used to fail, both fixed.** A program started
+  from an icon gets its stack from that icon, and the file manager wanted more
+  than it was given. And a program with no shell behind it cannot answer a
+  system requester, so the editor now reads the error instead of stopping on
+  a dialog nobody can dismiss.
+- **The editor's settings survive an update.** In the release its home is the
+  shared Mac folder, not the volume inside the app bundle, which is read-only
+  and replaced wholesale on every install.
+
 ## 2026-07-30 - the terminal grows an interrupt key, and the editor stops guessing about files
 
 - **Ctrl-C stops a running command in the terminal.** The Amiga break
