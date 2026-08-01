@@ -1068,3 +1068,27 @@ Two findings the spike forced, both now binding:
   inside the bridge would clobber the outer run's fault-recovery target;
   j5n_signal_set_recover now returns the previous target and j5d_run
   save/restores it (volatile local, longjmp-safe).
+
+## Decision: the execution boundaries divert to a launch router ([T0-P2], 2026-08-01)
+
+OS-side (fork commit 1eb9082854): both places that jump into a seglist now
+hand tracked GSLI_68KHUNK seglists to `Emu68k_RouteSegList` with a versioned
+launch context (origin CLI/PROC, seglist, name, args, process, mode). The
+router is a stub (report + decline) - the seam the engine attaches to in T1.
+DosEntry diverts only when the entry PC came from the seglist, so
+SystemTagList's explicit-entry shell case is untouched. Verified live on
+booted AROS from both boundaries (shell command with args; C:RunSeg for the
+created-process path), with the desktop boot smoke green.
+
+Findings:
+- **Hunk LoadSeg failed entirely on darwin** (MEMF_31BIT unsatisfiable: no
+  32-bit-addressable memory exists), so nothing downstream was reachable.
+  The old "keymaps load as garbage" era predates the high RAM map. Enabler:
+  64-bit fallback to plain memory for the hunk allocation. Contained: the
+  relocations are truncated but nothing interprets them - execution diverts
+  at the boundaries, parsekeymapseg already declines >4GiB seglists, and
+  ReadDiskFont now declines them identically (the one data consumer that
+  parsed blind). The real guest-address loader ([T0-P1]'s proxy seglist)
+  replaces this fallback in T1.
+- **GSLI_* tag constants live in the GENERATED dos/dostags.h** (SDK), not in
+  compiler/include - grepping the source tree for them finds only users.
