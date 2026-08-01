@@ -1235,3 +1235,32 @@ handle. `FreeArgs` is a no-op against the bump-allocated guest heap.
 `make hosted-emu68k-t3readargs` drives a real 68k program through
 `FILE/A,COUNT/N,ALL/S` and checks both directions (parses, and fails when the
 required argument is absent).
+
+## Findings from nine corpus rounds against real Aminet software (2026-08-01)
+
+The loop (`graft/68k-corpus` + `graft/68k-corpus-summary`) ran nine times, each
+round implementing whatever the ranking put on top. Beyond the calls themselves,
+four findings were structural and none were guessable:
+
+- **The loader was rejecting real programs.** It required a CODE/DATA hunk's
+  payload length to EQUAL the header's size word. The header size is the
+  ALLOCATION size and may exceed the payload; the real AROS loader leaves the
+  remainder as the zeroed memory it allocated. AutoDoc from Aminet never ran a
+  single instruction because of this, and since a load failure prints nothing,
+  it looked exactly like a program that ran and said nothing.
+- **A program that is silent AND reports no gap has given up somewhere**, and
+  the only way to find where is to watch what it called: `EMU68K_TRACE_CALLS`
+  logs every library call. That is what identified the loader bug.
+- **Eight library bases were not enough** - real programs open more than that,
+  and the failure surfaced as a bare "OpenLibrary gap" because `bridge()` was
+  burying exec's specific message under a generic one. Specific reasons now
+  survive.
+- **Bases need a version.** A zeroed base reports lib_Version 0, and programs
+  written for AmigaOS 2.0+ check that before doing anything.
+
+Where nine rounds left the 20-program batch: 2 running, 5 stopped at a named
+gap, 1 routed to hardware, 1 timing out, 10 running to completion without
+output (which for tools that need arguments is their own correct behaviour).
+The frontier is no longer dos: it is `MatchFirst` (2 programs) and the
+GUI libraries (intuition, commodities), which is the honest signal that the
+CLI/dos layer is broadly served.
