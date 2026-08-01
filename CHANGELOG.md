@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-08-01 - 68k programs that need the real Amiga hardware now say so
+
+- **A program that drives the Amiga chips gets a clear answer instead of a
+  crash.** Some classic software talks straight to the hardware rather than to
+  the operating system, and translation cannot serve that. Those programs now
+  stop with a plain sentence naming exactly what they wanted, for example the
+  custom chip register `$DFF180`, rather than dying mysteriously.
+- **It works even when the program hides the address.** If the hardware address
+  is worked out while the program runs, so nothing can spot it by inspection
+  beforehand, the system still catches the moment it is touched and gives the
+  same clear answer.
+- **New `scan68k` tool**: point it at a 68k program and it tells you how the
+  program would run here and why, without running it. Ordinary programs are
+  never mistaken for hardware-bangers.
+- Still open: pointing those programs at a real emulator automatically, and
+  remembering the choice per program.
+
 ## 2026-08-01 - Classic 68k Amiga programs run from the AROS shell
 
 - **Type the name of a 68k Amiga program and it runs.** A real big-endian
