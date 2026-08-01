@@ -1158,3 +1158,30 @@ arena is sized to exclude - the window is page-aligned DOWN.
 
 This is why the in-OS arena is ~9.9 MiB where run68k standalone uses 16 MiB: a
 16 MiB arena swallows $DFF000.
+
+## Milestone: the AmigaOS library bootstrap works in-OS ([T3] first slice, 2026-08-01)
+
+A 68k program doing the universal Amiga idiom - `move.l 4.w,a6`, exec
+OpenLibrary("dos.library"), calls through the returned base - runs from the
+AROS shell with the calls performed by the REAL native dos.library.
+
+Design points:
+
+- **SysBase lives at guest address 4 in a READ-ONLY page.** Reading it is the
+  standard idiom and must work; writing an exception vector is a program taking
+  over the machine and must still fault into the [T2b] guard. One mapping gives
+  both.
+- **The engine recognises many library bases per run** (j5d_register_libbase).
+  The bridge callback reads A6 to know which library was called; its signature
+  is unchanged.
+- **exec AllocMem is served from the GUEST heap**, never from the native
+  allocator: the program dereferences what it allocates, so the memory must be
+  inside the arena it can address.
+- **Handles cross as opaque tokens.** A native BPTR is a 64-bit pointer; a 68k
+  register holds 32 bits. Truncating Output()'s BPTR was the first live failure
+  (a fault inside dos.library), exactly the handle case [T0-P4] predicted. A
+  small token table maps 32-bit values the program never dereferences back to
+  the real BPTRs.
+- **The host stays OS-agnostic.** The oscall seam hands (libname, lvo, regs,
+  guest base) to the embedder; emu68k.library performs the native call. The
+  same seam is where the [T3a] generated tables will plug in.
