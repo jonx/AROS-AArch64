@@ -1287,3 +1287,39 @@ seconds, "killed at safe point"). PPMore is therefore NOT looping in translated
 code - it stops making library calls after AllocMem and hangs somewhere the
 guard cannot see, and `<NIL:` input did not change that. Unidentified; it is
 excluded from sweeps rather than left to stall them.
+
+## Rule: bridge to AROS by default; implement in the guest only when the RESULT cannot cross (2026-08-02)
+
+AROS is an AmigaOS reimplementation and has a full m68k-amiga target, where a
+68k program calls the real 68k exec/dos with no translation at all. We cannot
+have that on Apple Silicon without emulating a whole Amiga - which is exactly
+what the FULL route delegates to. So model 2 is not a duplicate of AROS/m68k:
+it is the case AROS/m68k cannot serve on this machine.
+
+That said, the standing rule for every call is: **use AROS's implementation
+unless the result cannot cross the boundary.**
+
+- BRIDGE (the default): the work is AROS's and only the arguments are
+  translated - Write/Open/Read/Seek/GetVar/SetVar/IoErr/Delay/PrintFault.
+- GUEST-SIDE (only when forced): the call PRODUCES something the program
+  dereferences or walks, which a native result cannot be - OpenLibrary (a guest
+  base; AROS returns a 64-bit pointer a 32-bit big-endian program cannot hold),
+  AllocMem and friends (guest arena), the list ops, InitSemaphore/CreateMsgPort
+  (guest structures), FindTask (the guest Process).
+- NO-OP: arbitration a single-threaded guest does not need (Forbid/Permit,
+  Obtain/Release).
+
+By that rule exactly ONE call is a genuine reimplementation: ReadArgs, because
+working out what each array slot means requires parsing the template anyway.
+
+**Correction to the earlier MatchFirst plan.** It was written as "guest-side,
+like ReadArgs". That is wrong and would mean reimplementing AmigaDOS pattern
+syntax when AROS already has it. The right shape is: call the NATIVE
+MatchFirst/MatchNext into a NATIVE AnchorPath, then copy the few fields the
+program actually reads (fib_FileName, fib_DirEntryType, fib_Size) into the guest
+AnchorPath - the shadow-structure pattern from [T0-P4], not a rewrite.
+
+The long-term answer to "are we hand-writing too much" is [T3a]: generate the
+crossings from the .conf files instead of hand-writing them. The hand-written
+table earned its keep by telling us WHICH functions real software needs; it
+should not be how they stay implemented.
