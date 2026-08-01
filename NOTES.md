@@ -1009,3 +1009,37 @@ Two byproduct findings, both feeding later phases:
   proof forks one process per run.
 - **libjit68k.a consumers must link `-Wl,-force_load`** (weak-default/strong-
   override pairs across archive members; documented at the Makefile target).
+
+## Decision: engine instances + safe points land IN the engine ([T0-P3], 2026-08-01)
+
+The 68k JIT is now multi-instance and interruptible, proven by
+`make hosted-emu68k-t0p3`:
+
+- **Instances.** All run-scoped engine state (block cache, stats, counters,
+  flags) moved into `struct j5d_engine_state`; a process-wide active-instance
+  pointer selects it, and the historical `g_*` names are `#define` views, so
+  the ~60 existing use sites compiled unchanged. Load-bearing detail: the
+  translate-time `&g_xxx` address bakes resolve to the OWNING instance, so
+  cached blocks stay correct across instance switches.
+- **Safe points.** The one place chained block->block execution avoids the C
+  dispatcher is the block chain entry, so that is where the check is emitted
+  (~11-19 words: test the instance's stop flag; on park, load any
+  dirty-not-live FP regs so the epilogue's stores are value-preserving, write
+  `yield_word = (1<<32)|entry_pc`, take the epilogue). The C dispatcher polls
+  per roundtrip. `j5d_request_stop()` is one volatile store: signal-safe.
+- **Yield/resume.** Poll callback answers CONTINUE/YIELD/KILL. A yield returns
+  `J5D_RC_YIELD` with `st->pc` set; resume = call `j5d_run` again from
+  `st->pc`. The trap found by the proof: the program-exit condition is "RTS
+  pops back to the initial SP", so the SP baseline (+ call depth) must be
+  saved in the instance across yields — a resumed run re-capturing the mid-run
+  SP as baseline exits early on the next same-level RTS (j5t's D0 came out
+  wrong exactly this way).
+- **Fault containment.** `j5d_run` wraps the dispatcher in `sigsetjmp`; the
+  `[J5n]` host-signal handler, after writing the crash bundle, `siglongjmp`s
+  back (one-shot) instead of re-raising. The 68k program dies with a clean
+  error + bundle; the embedding process survives and can run fresh instances.
+  This is the contract the in-OS `RunSeg68k` needs.
+
+Two emit-time gotchas recorded: `str64_offset`/`ldr64_offset` immediates are
+BYTE offsets (scaled internally), and inside `translate_block` the caller's
+`cb`/tmp block has `.pc` unset — use the `pc` parameter for baked entry PCs.

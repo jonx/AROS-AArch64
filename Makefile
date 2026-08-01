@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1629,6 +1629,18 @@ hosted-emu68k-t0p1: libjit68k
 		-o build/host-emu68k-t0p1
 	@out="$$(build/host-emu68k-t0p1)"; echo "$$out"; \
 	case "$$out" in *"[T0P1] PASS"*) : ;; *) echo "[T0P1] FAIL"; exit 1;; esac
+
+# [T0-P3] engine instances + safe points + fault containment (docs/features/
+# 68k-transparent-exec/plan.md): two interleaved instances on one thread, two
+# sequential same-process runs, a chained infinite loop killed from a signal
+# handler, a translated-code SIGSEGV contained to a clean error.
+hosted-emu68k-t0p3: libjit68k
+	clang $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k \
+		hosted/emu68k/t0p3_engine.c hosted/jit68k/apps68k/stublib.c \
+		-Wl,-force_load,build/libjit68k.a \
+		-o build/host-emu68k-t0p3
+	@out="$$(build/host-emu68k-t0p3 2>&1)"; echo "$$out"; \
+	case "$$out" in *"[T0P3] PASS"*) : ;; *) echo "[T0P3] FAIL"; exit 1;; esac
 
 # [args] run68k CLI argument passing (AmigaDOS convention): build run68k, run the args
 # demo (apps68k/bin/args.exe, compiled with crt0_args.s) with a FIXED arg vector, and
