@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-08-01 - Classic 68k Amiga programs run from the AROS shell
+
+- **Type the name of a 68k Amiga program and it runs.** A real big-endian
+  AmigaOS executable, the kind that only ever ran on a 68000, now runs on
+  Apple Silicon as an ordinary AROS process: output goes to your console,
+  arguments arrive the AmigaDOS way, the exit code comes back, and CTRL-C
+  stops it. No emulator window, no separate machine, nothing to configure.
+- **It behaves like a program, not an experiment.** Several 68k programs can
+  run at once alongside native ones, a program that crashes takes only itself
+  down (and leaves a crash report behind), and one that asks for an operating
+  system function we have not taught it yet says exactly which one instead of
+  failing mysteriously.
+- The output is identical, byte for byte, to the same programs run through the
+  standalone translator, including hardware floating point and a full
+  Dhrystone benchmark run.
+- Known limits: this covers system-friendly programs that talk to the OS.
+  Programs that drive the Amiga hardware directly are not supported yet, and
+  the set of OS functions available to 68k code is still small and growing.
+
 ## 2026-08-01 - Macaros 0.2: three applications, on the desktop, in one download
 
 - **The desktop has application icons now.** Macaros boots to Wanderer with

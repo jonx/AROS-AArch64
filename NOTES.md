@@ -1092,3 +1092,35 @@ Findings:
   replaces this fallback in T1.
 - **GSLI_* tag constants live in the GENERATED dos/dostags.h** (SDK), not in
   compiler/include - grepping the source tree for them finds only users.
+
+## Milestone: 68k programs run inside AROS ([T1], 2026-08-01)
+
+Real classic-Amiga 68k hunk binaries run from the booted AROS shell, byte-exact
+against the host engine. The chain: DOS entry boundary -> launch router ->
+emu68k.library -> hostlib -> libemu68k.dylib -> the JIT.
+
+Design points worth keeping:
+
+- **The source-image stash.** The hunk seglist payload is not interpretable on
+  this host (no 32-bit-addressable memory, truncated relocations), so the
+  loader keeps an AllocVec'd copy of the source FILE with the registry node
+  (`struct hunk_segnode`), freed with the node at unload. The router hands
+  those bytes to the library, which re-loads them into a guest arena. This is
+  the [T0-P1] proxy-seglist idea, minus the proxy chain: DOS keeps identity and
+  lifetime, the engine keeps the guest address space.
+- **Quanta, not a blocking call.** emu68k.library runs the program in bounded
+  quanta under a semaphore, polling CTRL-C between them. That is what makes
+  several translated processes interleave and a kill land.
+- **The chain budget is load-bearing** (engine change forced here): the
+  chain-entry safe point decrements a budget and parks at zero rather than only
+  testing a stop flag. A self-chained loop never returns to C on its own, so
+  without a budget nothing in-OS could ever poll CTRL-C; with it, `Break` kills
+  a runaway 68k loop and the desktop stays live.
+- **Failures are classified, not fatal.** An unmarshalled library call is a
+  capability-gap abort with a per-LVO ledger entry (hit count + program name);
+  a translated-code SIGSEGV is contained, bundled, and the next program runs.
+
+Verified in one boot (run/darwin-aarch64/t1x-195732): hardware-FP j5t and fact
+byte-exact from the shell, background Dhrystone interleaved with foreground
+Mandelbrot both byte-exact, a gap reported, a fault contained with the next
+program fine after it, a chained infinite loop killed with Break.
