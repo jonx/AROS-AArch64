@@ -22,6 +22,12 @@
 - **The editor's settings survive an update.** In the release its home is the
   shared Mac folder, not the volume inside the app bundle, which is read-only
   and replaced wholesale on every install.
+- **A crashing application no longer takes Macaros with it.** Quitting the file
+  manager ended the whole session: it aborts on exit, and the crash reporter
+  then walked a broken frame chain, faulted inside itself, and stopped the
+  host before it could say anything. The reporter now distrusts that chain,
+  and the release boots with trap containment on, so a fault shows a
+  recoverable alert and costs you that one program.
 
 ## 2026-07-30 - the terminal grows an interrupt key, and the editor stops guessing about files
 
