@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps run68k hosted-jit68k-args hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1556,8 +1556,42 @@ hosted-jit68k-j5t: | build
 #   build/run68k <program.exe>            # run a 68k hunk, output -> stdout, exit = D0
 #   build/run68k --help                   # usage
 # PATH: `cp build/run68k /usr/local/bin/` (or add build/ to PATH) to call it anywhere.
-run68k: | build
-	mkdir -p build/emu68-darwin build/emu68-darwin/math
+# [T0a] libjit68k: the SAME engine object set run68k always compiled inline, packaged
+# as a static library so a second consumer (emu68k.library — see
+# docs/features/68k-transparent-exec/) can link the identical engine.  The library is
+# OS-policy-free: run68k.c (the CLI) and apps68k/stublib.c (the stub-OS bridge) stay
+# with the front-end, so the seam is exactly the public entry points run68k.c already
+# limits itself to (j4_load_hunks / stublib_* / j5d_run / j5d_set_diag / j5n_*).
+#
+# CONSUMERS MUST LINK WITH -Wl,-force_load,build/libjit68k.a — never a bare -ljit68k.
+# The engine binds cross-object through WEAK defaults that strong members override
+# (j5d_engine.c's weak EMIT_lineF vs the real one in M68k_LINEF.o; the weak [J5n]
+# hooks vs j5n_diag.o).  Mach-O archives only load members that satisfy an UNDEFINED
+# symbol, and a weak definition is not undefined, so lazy archive linking silently
+# drops the strong overrides (first symptom: FP programs die with "decoder consumed
+# 0 insns").  force_load restores exactly the monolithic-link semantics.
+JIT68K_ENGINE_SRC = \
+	hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+	hosted/jit68k/j5c_ra.c hosted/jit68k/j5o_fpu_shims.c \
+	hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+	hosted/jit68k/j5n_diag.c hosted/jit68k/j5n_symbols.c \
+	hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c
+JIT68K_EMU68_SRC = \
+	build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+	build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+	build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+	build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+	build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+	build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+	build/emu68-darwin/M68k_CC.c build/emu68-darwin/M68k_LINEF.c
+JIT68K_CFLAGS = -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k \
+	-Ihosted/jit68k/emu68 -Wno-unused-function -Wno-xor-used-as-pow \
+	-Wno-incompatible-library-redeclaration \
+	-DJ5N_GIT_COMMIT="\"$$(git rev-parse HEAD 2>/dev/null || echo unknown)\"" \
+	-DJ5N_BUILD_CONFIG="\"clang -arch arm64 -O2 (hosted darwin-aarch64); emu68 darwinized\""
+
+libjit68k: | build
+	mkdir -p build/emu68-darwin build/emu68-darwin/math build/jit68k-obj
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MULDIV M68k_CC; do \
 		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
 	done
@@ -1568,25 +1602,17 @@ run68k: | build
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/math/libm.h build/emu68-darwin/math/libm.h --libm-asm-fix
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINEF.c build/emu68-darwin/M68k_LINEF.c --fpu-sandbox
-	clang -arch arm64 -O2 -Wall -Wextra -Ibuild/emu68-darwin -Ihosted/jit68k -Ihosted/jit68k/emu68 \
-		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
-		-Wno-incompatible-library-redeclaration \
-		-DJ5N_GIT_COMMIT="\"$$(git rev-parse HEAD 2>/dev/null || echo unknown)\"" \
-		-DJ5N_BUILD_CONFIG="\"clang -arch arm64 -O2 (hosted darwin-aarch64); emu68 darwinized\"" \
-		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
-		hosted/jit68k/j5c_ra.c hosted/jit68k/j5o_fpu_shims.c \
-		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
-		hosted/jit68k/j5n_diag.c hosted/jit68k/j5n_symbols.c \
-		hosted/jit68k/run68k.c \
-		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
-		hosted/jit68k/apps68k/stublib.c \
-		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
-		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
-		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
-		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
-		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
-		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
-		build/emu68-darwin/M68k_CC.c build/emu68-darwin/M68k_LINEF.c \
+	for f in $(JIT68K_ENGINE_SRC) $(JIT68K_EMU68_SRC); do \
+		clang -c $(JIT68K_CFLAGS) $$f -o build/jit68k-obj/$$(basename $$f .c).o || exit 1; \
+	done
+	rm -f build/libjit68k.a
+	ar rcs build/libjit68k.a build/jit68k-obj/*.o
+	@echo ">> built build/libjit68k.a — the 68k JIT engine as a linkable library"
+
+run68k: libjit68k
+	clang $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k \
+		hosted/jit68k/run68k.c hosted/jit68k/apps68k/stublib.c \
+		-Wl,-force_load,build/libjit68k.a \
 		-o build/run68k
 	@echo ">> built build/run68k — run a 68k hunk:  build/run68k hosted/jit68k/apps68k/bin/mandel.exe"
 
