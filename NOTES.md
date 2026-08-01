@@ -1385,7 +1385,18 @@ Known issues left open, deliberately:
   to `RAM:Clipboards`.
 - `hosted/hostshell/settings.json` defaults `sharing.clipboard` to 0 while
   `hosted/cocoametal/settings.json` defaults it to 1.
-- Unrelated but it breaks console-mode boots: `AddAudioModes` currently ends in
-  a DEADEND alert, and the console startup-sequence runs it synchronously, so
-  the alert halts the sequence before `ConClip` starts and the whole clipboard
-  chain is dead in that mode.
+Resolved while investigating the above, and worth remembering as a pattern:
+`AddAudioModes` was ending in a DEADEND alert during desktop boots, which stops
+the whole system, and since `ConClip` starts after it in both startup modes the
+clipboard chain was dead with it. It was not an audio bug. The fault PC was
+`main + 0x2c`, which disassembles to `ldr x2, [x23]` loading the program's own
+`SysBase` global for its first `OpenLibrary` call, so the binary died before it
+touched audio. It was a stale binary: `AddAudioModes` and `ahi.device` dated
+from 07-18 while `posixc.library` and `stdc.library` had been rebuilt on 07-28
+and 07-30 during pthread/errno work. `make workbench-devs-AHI-quick` fixed it;
+10 of 10 desktop boots clean afterwards, against one captured crash before.
+
+The general rule: after a batch of commits lands, a partially rebuilt tree can
+fault in a program's startup long before that program reaches anything it is
+actually named for. Check the module's date against the C runtime's before
+reading anything into the backtrace.
