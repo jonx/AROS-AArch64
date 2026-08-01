@@ -1616,6 +1616,24 @@ run68k: libjit68k
 		-o build/run68k
 	@echo ">> built build/run68k — run a 68k hunk:  build/run68k hosted/jit68k/apps68k/bin/mandel.exe"
 
+# [T1] libemu68k.dylib: the host-side 68k execution service — the engine (libjit68k)
+# behind the small quantum-run API of hosted/emu68k/emu68k_host.h, loaded by AROS's
+# emu68k.library via hostlib.resource. Deployed to ~/lib by aros-ctl deploy.
+emu68k-dylib: libjit68k
+	clang -dynamiclib $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k -Ihosted/emu68k \
+		hosted/emu68k/emu68k_host.c hosted/jit68k/apps68k/stublib.c \
+		-Wl,-force_load,build/libjit68k.a \
+		-install_name @rpath/libemu68k.dylib \
+		-o build/libemu68k.dylib
+	@echo ">> built build/libemu68k.dylib"
+
+# [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
+hosted-emu68k-t1dyl: emu68k-dylib
+	clang -arch arm64 -O2 -Wall -Ihosted/emu68k hosted/emu68k/t1_dylib_test.c \
+		-o build/host-emu68k-t1dyl
+	@out="$$(build/host-emu68k-t1dyl build/libemu68k.dylib 2>&1)"; echo "$$out"; \
+	case "$$out" in *"[T1DYL] PASS"*) : ;; *) echo "[T1DYL] FAIL"; exit 1;; esac
+
 # [T0-P1] the guest-address / loader-representation proof for transparent 68k
 # execution (docs/features/68k-transparent-exec/plan.md): loads two REAL hunk
 # binaries into 32-bit guest arenas with guest-address relocation, builds the
