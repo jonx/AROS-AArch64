@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-08-02 - Copy and paste work in the shell again, in both directions
+
+- **Paste into the shell works.** Right-Amiga+V (either ⌘ on a Mac keyboard,
+  including the right one) puts the Mac clipboard at the prompt. It had been
+  silently doing nothing in the boot console: that window opens lazily, and the
+  console handler was listening on the window's message port as it stood at
+  startup, before the window existed. So no menu entry in that window worked
+  either, Copy, Paste, About or Close.
+- **Copying out of the shell works.** Mark console text with the mouse and press
+  Right-Amiga+C and the text is on the Mac clipboard. Nothing had been writing
+  the AROS clipboard from the console at all, so this direction could not work
+  however healthy the bridge was.
+- **One keypress, one paste.** The chord used to be delivered twice, once to the
+  console and once as a menu shortcut, which pasted the clipboard twice and
+  copied it twice. It now has a single owner.
+- **The Mac clipboard is read more broadly**, so text copied from applications
+  that publish it in a less common form still crosses over, instead of the Paste
+  menu offering a clip that never arrived.
+- **A busy Mac clipboard no longer blocks the other direction.** An application
+  that rewrites the Mac clipboard on a timer used to keep AROS-to-Mac copies
+  from ever being noticed.
+
 ## 2026-08-01 - 68k programs that need the real Amiga hardware now say so
 
 - **A program that drives the Amiga chips gets a clear answer instead of a

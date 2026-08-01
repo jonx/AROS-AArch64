@@ -1350,3 +1350,42 @@ This is the third instance of one theme: values crossing into the guest must
 be shaped the way a 68k program expects, not the way the host holds them
 (64-bit handles needed tokens, native pointers need translation, BPTRs need
 shifting).
+
+## Clipboard: one chord must have one owner (2026-08-02)
+
+Shell copy/paste was broken in three independent ways at once, and the fixes
+only make sense together.
+
+`console.device`'s rawkey handler runs at priority 51, above intuition's 50.
+That is deliberate. It means the console sees Right-Amiga+C/V **before**
+intuition can turn the chord into a menu shortcut, so console.device is the
+chord's natural owner. Giving the console window's Edit menu CommKeys `"c"` and
+`"v"` for the same chord makes both act, and every operation happens twice. The
+menu items stay (mouse access) but carry no CommKey; they inject the chord
+directly into `CDInputHandler`, which intuition never sees.
+
+`con-handler` computed its window signal mask once, before entering its event
+loop. The boot console is opened `AUTO` and so has no window at that moment, so
+the mask was zero for the life of the handler and no `IDCMP_MENUPICK` was ever
+read in that window. An `AUTO` console also closes its window at EOF, which
+left the same captured mask pointing at a freed port. The mask has to be
+recomputed each time round the loop.
+
+Known issues left open, deliberately:
+
+- The bridge polls at 5 Hz, so copies made faster than ~200 ms apart coalesce
+  and only the last crosses. Measured 3 of 8 at 50 ms spacing, 8 of 8 at 300 ms.
+- Every host call sits inside `Forbid()` + `HostLib_Lock()`, so each pasteboard
+  round trip stalls the whole guest scheduler briefly, five times a second.
+- A `CBD_POST` clip can block the bridge indefinitely in `CMD_READ`. Latent: no
+  in-tree program posts rather than writes.
+- There is no bridge shutdown path; host process exit tears it down.
+- The release bundle assigns `CLIPS:` to `SYS:clips` inside the signed `.app`.
+  It is harmless only because the assign fails and clipboard.device falls back
+  to `RAM:Clipboards`.
+- `hosted/hostshell/settings.json` defaults `sharing.clipboard` to 0 while
+  `hosted/cocoametal/settings.json` defaults it to 1.
+- Unrelated but it breaks console-mode boots: `AddAudioModes` currently ends in
+  a DEADEND alert, and the console startup-sequence runs it synchronously, so
+  the alert halts the sequence before `ConClip` starts and the whole clipboard
+  chain is dead in that mode.
