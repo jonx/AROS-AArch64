@@ -1619,6 +1619,11 @@ run68k: libjit68k
 # [T1] libemu68k.dylib: the host-side 68k execution service — the engine (libjit68k)
 # behind the small quantum-run API of hosted/emu68k/emu68k_host.h, loaded by AROS's
 # emu68k.library via hostlib.resource. Deployed to ~/lib by aros-ctl deploy.
+# NOTE: check the EXIT STATUS of this target, never a grep of its output. A build
+# that fails while a stale build/libemu68k.dylib is present looks like success to
+# `make ... | grep -c error`, and the next run silently exercises the old code -
+# which cost real debugging time (an exec call that was "implemented" but kept
+# reporting a capability gap, because the object had never been rebuilt).
 emu68k-dylib: libjit68k
 	clang -dynamiclib $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k -Ihosted/emu68k \
 		hosted/emu68k/emu68k_host.c hosted/emu68k/scan68k.c \
