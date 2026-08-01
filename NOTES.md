@@ -1185,3 +1185,32 @@ Design points:
 - **The host stays OS-agnostic.** The oscall seam hands (libname, lvo, regs,
   guest base) to the embedder; emu68k.library performs the native call. The
   same seam is where the [T3a] generated tables will plug in.
+
+## Method: harden against real software, ranked by what it asks for (2026-08-01)
+
+`graft/68k-corpus` + `graft/68k-corpus-summary` make the loop one command: run a
+folder of real 68k programs on booted AROS, get a verdict per program and a
+ranked list of the missing calls, implement the top one, re-run. The gap names
+come from AROS's own generated headers, so they are exact.
+
+What two rounds against 20 Aminet programs actually taught (none of it guessable):
+
+- **AllocVec, not AllocMem**, is what real code allocates with. It was the
+  single most-wanted call in the corpus.
+- **`ExecBase->ThisTask` is read directly**, not via FindTask. With it zero, a
+  program reads pr_CLI from address 0, concludes it was launched from Workbench,
+  and waits on a message that never comes. Two unrelated programs stopped there.
+- **`OldOpenLibrary` is still in use** by pre-2.0 binaries.
+- **Library vectors are not only reached through A6.** `move.l a6,a0 ; jsr
+  -294(a0)` is ordinary compiler output; the engine now recognises a vector by
+  its target address.
+- **A base you can only call is not enough** - programs read fields from it, so
+  the bases had to move inside the mapped arena.
+- **List operations belong in the guest.** AddHead/AddTail/Remove manipulate
+  guest structures; calling the native ones would write host pointers into a
+  list the program cannot address.
+- The guest heap being 28 KB was invisible until DMS said "Memory Allocation
+  Failure" in its own words.
+
+Each round moves the frontier: round 1's gaps were all exec, round 2's were all
+dos, which is itself the signal that the bootstrap layer is done.
