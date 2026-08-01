@@ -1280,3 +1280,10 @@ Two consequences worth keeping:
   reads EOF instead of blocking a batch.
 - The general fix, when it matters, is a timeout on the native side of the
   bridge rather than in the engine - the engine is not where the program is.
+
+**Verified, so the guarantee is not overstated:** the wall-clock guard DOES stop
+a fully chained infinite 68k loop (`EMU68K_MAX_SECONDS=2` kills it in two
+seconds, "killed at safe point"). PPMore is therefore NOT looping in translated
+code - it stops making library calls after AllocMem and hangs somewhere the
+guard cannot see, and `<NIL:` input did not change that. Unidentified; it is
+excluded from sweeps rather than left to stall them.
