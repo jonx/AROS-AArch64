@@ -1214,3 +1214,24 @@ What two rounds against 20 Aminet programs actually taught (none of it guessable
 
 Each round moves the frontier: round 1's gaps were all exec, round 2's were all
 dos, which is itself the signal that the bootstrap layer is done.
+
+## Decision: ReadArgs is implemented in the guest, not bridged (2026-08-01)
+
+`ReadArgs` is how every modern AmigaDOS CLI tool reads its arguments, so it is
+the single call that decides whether ordinary command-line software does
+anything useful. It is implemented over GUEST memory in the host service rather
+than by calling the native AROS ReadArgs, because everything it produces is a
+pointer the program dereferences: the argument strings, the LONG a `/N` writes,
+the NULL-terminated vector a `/M` builds. Native pointers would be addresses the
+guest cannot reach - the same rule that made file handles cross as tokens, one
+level up.
+
+Covered: positional, `/S`, `/K`, `/N`, `/A`, `/M`, `/F`, `=ALIAS`. Keywords are
+matched anywhere on the line first, then the remaining tokens fill positionals
+in template order, which is the AmigaDOS behaviour programs rely on. A missing
+`/A` returns NULL with IoErr set - the failure path programs are written to
+handle. `FreeArgs` is a no-op against the bump-allocated guest heap.
+
+`make hosted-emu68k-t3readargs` drives a real 68k program through
+`FILE/A,COUNT/N,ALL/S` and checks both directions (parses, and fails when the
+required argument is absent).
