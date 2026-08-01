@@ -1043,3 +1043,28 @@ The 68k JIT is now multi-instance and interruptible, proven by
 Two emit-time gotchas recorded: `str64_offset`/`ldr64_offset` immediates are
 BYTE offsets (scaled internally), and inside `translate_block` the caller's
 `cb`/tmp block has `.pc` unset — use the `pc` parameter for baked entry PCs.
+
+## Decision: the marshalling annotation vocabulary holds ([T0-P4], 2026-08-01)
+
+`make hosted-emu68k-t0p4` proves the design-§4 schema on the five representative
+cases with ONE generic descriptor-driven marshaller (the shape the genmodule
+back-end will emit): scalar / buffer+length / C-string / opaque handle /
+shadow struct (host-layout copy of BE guest fields, per-field direction map,
+big-endian copy-back of OUT fields) / callback hook (nested engine re-entry,
+Amiga A0/A2/A1 hook ABI, proven end-to-end from real 68k through the LVO
+bridge) / taglist (per-domain kinds). Unknown tags AND unknown LVOs abort as
+ledger-recorded capability gaps - the no-guessing rule is now executable
+behavior, not prose.
+
+Two findings the spike forced, both now binding:
+
+- **Marshalling is two-pass: scalars first, then pointer kinds.** A buffer's
+  length register can be declared after the buffer argument; in-order
+  marshalling bounds-checks the buffer against length 0 and the native side
+  then writes past the arena (caught here as a real 64-byte heap overwrite at
+  the sandbox edge). Lengths are scalars, so pass 0 = scalars/handles,
+  pass 1 = everything that dereferences.
+- **Nested engine runs need recovery nesting.** A hook re-entering j5d_run
+  inside the bridge would clobber the outer run's fault-recovery target;
+  j5n_signal_set_recover now returns the previous target and j5d_run
+  save/restores it (volatile local, longjmp-safe).
