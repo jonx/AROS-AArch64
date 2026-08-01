@@ -1323,3 +1323,30 @@ The long-term answer to "are we hand-writing too much" is [T3a]: generate the
 crossings from the .conf files instead of hand-writing them. The hand-written
 table earned its keep by telling us WHICH functions real software needs; it
 should not be how they stay implemented.
+
+## Bug class: BPTRs handed to the guest must be SHIFTED (2026-08-02)
+
+A 68k program is a classic AmigaOS program, and there a BPTR is the address
+DIVIDED BY FOUR - `BADDR(x)` is `x << 2`. Native AROS on this target is built
+with `AROS_FAST_BPTR`, where a BPTR is simply a pointer. So it is easy to plant
+a raw address in a guest structure and be wrong in a way nothing complains
+about: the program shifts it left by two and reads somewhere else entirely.
+
+That is exactly what happened. `pr_CLI` was planted as $222400; the program
+computed `BADDR` and got $889000 (visible in a call trace as `a0=00889000`),
+and the resulting faults landed at guest $1E0004/$1E0008 - addresses derived
+from reading structures that were never where the program looked. Three of the
+crash bundles from one sweep were this.
+
+**The rule: every BPTR-typed value handed to the guest goes through
+`GUEST_MKBADDR` (>>2), and every BPTR received from the guest through
+`GUEST_BADDR` (<<2).** Fields affected: pr_CLI (fixed), and still outstanding -
+the file-handle tokens returned by Output/Input/Open, which a program that
+dereferences its handle (to read fh_Type, say) will BADDR into nonsense. The
+fix there is to back each token with a real guest structure and hand out
+MKBADDR of its address, rather than an opaque tag.
+
+This is the third instance of one theme: values crossing into the guest must
+be shaped the way a 68k program expects, not the way the host holds them
+(64-bit handles needed tokens, native pointers need translation, BPTRs need
+shifting).
