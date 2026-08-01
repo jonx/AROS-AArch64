@@ -1264,3 +1264,19 @@ output (which for tools that need arguments is their own correct behaviour).
 The frontier is no longer dos: it is `MatchFirst` (2 programs) and the
 GUI libraries (intuition, commodities), which is the honest signal that the
 CLI/dos layer is broadly served.
+
+## Finding: a guest blocked in a native call is past the guard (2026-08-02)
+
+`EMU68K_MAX_SECONDS` and CTRL-C both land at quantum boundaries, which means
+they can interrupt any amount of *translated* execution - including a fully
+chained loop. What they cannot reach is a guest blocked inside a NATIVE call:
+PPMore is a text viewer, it called Read on the console waiting for a keypress,
+and the sweep sat there indefinitely because the program was not executing 68k
+instructions at all.
+
+Two consequences worth keeping:
+
+- The corpus harness runs every program with `<NIL:`, so an interactive tool
+  reads EOF instead of blocking a batch.
+- The general fix, when it matters, is a timeout on the native side of the
+  bridge rather than in the engine - the engine is not where the program is.
