@@ -979,3 +979,33 @@ printf `%f` verified). `hosted/ffmpeg/*` changes in the aros-aarch64 repo are UN
 disk program + the existing boot, NOT a full-tree rebuild. The merge's full rebuild is
 also the confirmation that no early disk module regresses from dropping `-lstdc.static`
 from the general LDFLAGS.
+
+## Decision: the 68k proxy-seglist representation ([T0-P1], 2026-08-01)
+
+For transparent 68k execution (docs/features/68k-transparent-exec/), hunk
+binaries on non-m68k builds are represented as a **proxy seglist**: the hunk
+payloads live in a 32-bit guest arena, relocated with **guest addresses** by
+the [J4] relocator (the exact upstream algorithm), and LoadSeg's return value
+is a chain of small **native** nodes — one per hunk, `[BPTR next][descriptor]`
+— that the existing DOS machinery handles unchanged: fast-BPTR identity for
+`GetSegListInfo(GSLI_68KHUNK)`, the blind `UnLoadSeg` walk frees the nodes,
+and the guest arena teardown hangs off the **seg-registry removal** (the same
+list entry that provides identity), so identity and lifetime share one
+mechanism and `UnLoadSeg` needs no knowledge of the arena.
+
+Why not the alternatives: the upstream loader itself cannot run on darwin
+(hard `MEMF_31BIT` requirement vs. no low-4 GiB host mappings —
+`internalloadseg_aos.c:196` / `bootstrap/memory.c:57`), and a guest-resident
+seglist chain cannot be walked by native 64-bit DOS. Proof:
+`make hosted-emu68k-t0p1` (`hosted/emu68k/t0p1_seglist.c`) — two real hunk
+binaries (integer + hardware FP) loaded, identified (positive + negative),
+run byte-exact through the full JIT **from the proxy chain alone**, and
+unloaded leak-free.
+
+Two byproduct findings, both feeding later phases:
+- **The engine is single-run-per-process today**: a second `j5d_run` after
+  `j5d_run_free()` in one process executes stale chained blocks in freed JIT
+  memory (EXC_BAD_ACCESS). First-hand confirmation of the [T0-P3] scope; the
+  proof forks one process per run.
+- **libjit68k.a consumers must link `-Wl,-force_load`** (weak-default/strong-
+  override pairs across archive members; documented at the Makefile target).
