@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1626,6 +1626,38 @@ emu68k-dylib: libjit68k
 		-install_name @rpath/libemu68k.dylib \
 		-o build/libemu68k.dylib
 	@echo ">> built build/libemu68k.dylib"
+
+# [T2a] scan68k: the static hardware-use scanner + the diagnosis CLI. Answers
+# "how would this 68k program run here, and why" without running it.
+scan68k: | build
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
+		hosted/emu68k/scan68k.c hosted/emu68k/scan68k_main.c -o build/scan68k
+	@echo ">> built build/scan68k — try: build/scan68k hosted/jit68k/apps68k/bin/mandel.exe"
+
+# [T2a] the scanner regression: every crafted case routes as designed AND no real
+# program is mis-routed. Both halves matter — a wrong FULL sends a working program
+# to an emulator, which is the failure the confidence grading exists to avoid.
+hosted-emu68k-t2scan: scan68k
+	@fail=0; \
+	check() { got="$$(build/scan68k -q hosted/emu68k/scantests/bin/$$1.exe | cut -d' ' -f1-2)"; \
+	  if [ "$$got" != "$$2" ]; then echo "  FAIL $$1: got '$$got' want '$$2'"; fail=1; \
+	  else echo "  ok   $$1: $$got"; fi; }; \
+	echo "== [T2a] crafted cases =="; \
+	check chipbang     "FULL 2"; \
+	check ciapeek      "FULL 2"; \
+	check vecwrite     "FULL 2"; \
+	check superviolate "FULL 2"; \
+	check datadecoy    "JIT 1"; \
+	check opdecoy      "JIT 0"; \
+	check computedhw   "JIT 0"; \
+	echo "== [T2a] real programs must never be mis-routed to FULL =="; \
+	for f in hosted/jit68k/apps68k/bin/*.exe hosted/jit68k/bench/bin/dhry.exe; do \
+	  [ -f "$$f" ] || continue; \
+	  r="$$(build/scan68k -q $$f 2>/dev/null | cut -d' ' -f1)"; \
+	  if [ "$$r" != "JIT" ]; then echo "  FAIL $$(basename $$f): routed $$r"; fail=1; fi; \
+	done; \
+	[ $$fail -eq 0 ] || { echo "[T2a] FAIL"; exit 1; }; \
+	echo "[T2a] PASS: 4 hardware-bangers routed FULL, 3 negative controls routed JIT (inline hardware-shaped data graded weak, opcode-shaped data in a DATA hunk ignored, a runtime-computed address correctly invisible), and every real corpus program routes JIT."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
