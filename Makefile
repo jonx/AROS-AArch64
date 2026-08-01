@@ -32,7 +32,7 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1658,6 +1658,15 @@ hosted-emu68k-t2scan: scan68k
 	done; \
 	[ $$fail -eq 0 ] || { echo "[T2a] FAIL"; exit 1; }; \
 	echo "[T2a] PASS: 4 hardware-bangers routed FULL, 3 negative controls routed JIT (inline hardware-shaped data graded weak, opcode-shaped data in a DATA hunk ignored, a runtime-computed address correctly invisible), and every real corpus program routes JIT."
+
+# [T2b] the runtime hardware guard: a guest touch of the Amiga hardware comes back
+# as a classified routing event naming the register, not a crash. Needs the scanner
+# test programs, so it depends on the scanner target that assembles them.
+hosted-emu68k-t2guard: emu68k-dylib hosted-emu68k-t2scan
+	clang -arch arm64 -O2 -Wall -Ihosted/emu68k hosted/emu68k/t2b_guard_test.c \
+		-o build/host-emu68k-t2guard
+	@out="$$(build/host-emu68k-t2guard build/libemu68k.dylib 2>&1)"; echo "$$out"; \
+	case "$$out" in *"[T2B] PASS"*) : ;; *) echo "[T2B] FAIL"; exit 1;; esac
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
