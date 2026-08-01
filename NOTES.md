@@ -1124,3 +1124,37 @@ Verified in one boot (run/darwin-aarch64/t1x-195732): hardware-FP j5t and fact
 byte-exact from the shell, background Dhrystone interleaved with foreground
 Mandelbrot both byte-exact, a gap reported, a fault contained with the next
 program fine after it, a chained infinite loop killed with Break.
+
+## Decision: how hardware use is detected ([T2a]/[T2b], 2026-08-01)
+
+Two independent mechanisms, deliberately calibrated against different failure
+costs. A wrong FULL sends a working program to an emulator (expensive, visible),
+a wrong JIT is cheap (the guard catches it), so both lean toward JIT.
+
+**Static scan** (`hosted/emu68k/scan68k.c`, shared by the `scan68k` CLI and the
+in-OS router). The calibration was the work:
+
+- A 2-byte sweep reads operands as opcodes and flagged every real program as a
+  hardware banger. The scan now walks real instruction boundaries with a length
+  table and STOPS at the first word it cannot size - never a guessed resync,
+  because a desynced walk invents findings.
+- With exact lengths the absolute operand is located precisely rather than
+  guessed from the following words.
+- Relocation sites are excluded: dhrystone's `move.l #0,$64` initialising a
+  global looks exactly like an exception-vector write until you notice the
+  address is a relocation target. Bitmap, so any number of relocs costs the same.
+- `RTE` is not a banger signal even though it is privileged: the engine
+  implements 68k exception dispatch, so the list is about THIS engine's reach.
+
+**Runtime guard** (`hosted/emu68k/emu68k_host.c`): implemented as absence, not
+as checking. The low 16 MiB of guest space is one PROT_NONE reservation with
+only the arena window mprotected RW, so the chipset/CIA/vector page are simply
+not mapped; a touch faults and the [T2b] classifier converts the faulting host
+address back to the guest address it came from. No emitted bounds check, no hot
+path cost. Two mechanical traps: a malloc'd arena does NOT fault just past its
+end (reads land in the allocator's pages and silently succeed), and mprotect
+rounds the length UP so a partial page handed the guest the very registers the
+arena is sized to exclude - the window is page-aligned DOWN.
+
+This is why the in-OS arena is ~9.9 MiB where run68k standalone uses 16 MiB: a
+16 MiB arena swallows $DFF000.
