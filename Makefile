@@ -1621,7 +1621,8 @@ run68k: libjit68k
 # emu68k.library via hostlib.resource. Deployed to ~/lib by aros-ctl deploy.
 emu68k-dylib: libjit68k
 	clang -dynamiclib $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k -Ihosted/emu68k \
-		hosted/emu68k/emu68k_host.c hosted/jit68k/apps68k/stublib.c \
+		hosted/emu68k/emu68k_host.c hosted/emu68k/scan68k.c \
+		hosted/jit68k/apps68k/stublib.c \
 		-Wl,-force_load,build/libjit68k.a \
 		-install_name @rpath/libemu68k.dylib \
 		-o build/libemu68k.dylib
