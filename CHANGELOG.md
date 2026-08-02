@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-08-02 - A real Amiga archiver compresses and extracts on AROS/aarch64
+
+- **LhA works.** The original 68k LhA 2.15, unmodified, compresses a file into
+  an archive, lists it, and extracts it again. The archive it writes is valid
+  LHA that other tools read, and the extracted file is byte-identical to the
+  original. This is a 1991 Amiga binary doing its actual job on an Apple Silicon
+  Mac, not a port and not a rebuild.
+- **Structure layouts are derived from the OS, not typed in.** An AmigaOS
+  structure and a native AROS one differ in byte order, pointer width and
+  alignment, so anything crossing between a 68k program and AROS has to be
+  rebuilt field by field. Those offsets now come out of the AROS headers
+  automatically for both layouts, and the generator refuses to emit if it stops
+  reproducing layouts that are known facts about the Amiga.
+
 ## 2026-08-02 - LhA runs, and a whole class of silent 68k miscompilation is fixed
 
 - **68k programs can read their own data again.** Position-independent code, which
