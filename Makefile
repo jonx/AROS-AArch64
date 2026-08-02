@@ -36,7 +36,7 @@ INPUT   ?= ping\nticks\nquit\n
 # this one is the host/graft layer. Override if your checkout is elsewhere.
 AROS_SRC ?= $(HOME)/Source/aros-upstream
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-jit68k-conform hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-jit68k-conform hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1676,6 +1676,7 @@ run68k: libjit68k
 emu68k-dylib: libjit68k
 	clang -dynamiclib $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k -Ihosted/emu68k \
 		hosted/emu68k/emu68k_host.c hosted/emu68k/scan68k.c \
+		hosted/emu68k/guestlib68k.c \
 		hosted/jit68k/apps68k/stublib.c \
 		-Wl,-force_load,build/libjit68k.a \
 		-install_name @rpath/libemu68k.dylib \
@@ -1743,6 +1744,51 @@ hosted-emu68k-t3readargs: emu68k-dylib
 	[ "$$rc" = "2" ] || { echo "[T3RA] FAIL: missing /A argument should fail (got $$rc)"; exit 1; }; \
 	echo "[T3RA] PASS: a 68k program parsed \"FILE/A,COUNT/N,ALL/S\" through ReadArgs and read back the string it produced; a missing required argument failed the AmigaDOS way."
 
+# [T3e] The two real Resident forms + the guest-library dispatch distinction.
+# test.library has direct executable rt_Init code; autoinit.library contains two
+# named four-long RTF_AUTOINIT residents covering relative and absolute function
+# tables plus InitStruct. The reusable loader constructs their vector/base areas,
+# then the harness calls public vectors via real jsr d16(a6). Any bridge hit fails.
+hosted-emu68k-t3guestlib: libjit68k
+	mkdir -p build/emu68k-nativelib
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/test.library hosted/emu68k/nativelib/testlib.s
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/autoinit.library hosted/emu68k/nativelib/autoinitlib.s
+	clang $(JIT68K_CFLAGS) -Ihosted/emu68k \
+		hosted/emu68k/t3e_guestlib_test.c hosted/emu68k/guestlib68k.c \
+		-Wl,-force_load,build/libjit68k.a -o build/host-emu68k-t3guestlib
+	build/host-emu68k-t3guestlib build/emu68k-nativelib/test.library \
+		build/emu68k-nativelib/autoinit.library
+
+# [T3e] The actual exec.OpenLibrary seam: a program requests the disk library
+# by name, initializes and opens it, closes/expunges it, reloads it, then proves
+# version rejection. EMU68K_LIBS_PATH is the host-visible LIBS: search list.
+hosted-emu68k-t3guestlive: emu68k-dylib
+	mkdir -p build/emu68k-nativelib
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/autoinit.library hosted/emu68k/nativelib/autoinitlib.s
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/test.library hosted/emu68k/nativelib/testlib.s
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/guestopen.exe hosted/emu68k/nativelib/guestopen.s
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/cyclea.library hosted/emu68k/nativelib/cyclea.s
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/cycleb.library hosted/emu68k/nativelib/cycleb.s
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
+		hosted/emu68k/t3e_live_test.c -o build/host-emu68k-t3guestlive
+	build/host-emu68k-t3guestlive build/emu68k-nativelib/guestopen.exe
+
+# [T3e] Real third-party chain. The copyrighted/free-noncommercial Aminet
+# package remains outside the tree; the runner verifies its pinned SHA-256,
+# extracts it into a temporary directory, and requires full xQuery metadata
+# from xpkmaster.library -> xpkNONE.library (not just a successful Open).
+hosted-emu68k-t3ereal: emu68k-dylib
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
+		hosted/emu68k/t3e_real_test.c -o build/host-emu68k-t3ereal
+	./graft/68k-xpk-query
+
 VASM := hosted/jit68k/apps68k/.toolchain/vasmm68k_mot
 
 # Reassemble the in-guest OS routines into their checked-in C header.
@@ -1788,10 +1834,16 @@ hosted-emu68k-t3gen:
 	@mkdir -p build/t3gen && rm -f build/t3gen/*
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genbridge hosted/emu68k/nativelib/genbridge.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/gentagbad hosted/emu68k/nativelib/gentagbad.s >/dev/null
 	@EMU68K_MAX_SECONDS=8 ./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
 	grep -q '\[T3GEN\] PASS' build/t3gen-out.txt || { \
 		echo "[T3GEN] FAIL:"; cat build/t3gen-out.txt; exit 1; }
-	@echo "[T3GEN] PASS: a 68k program drove dos.ParsePattern/MatchPattern (D-register arguments), utility.Stricmp (A-register arguments, second library opened on demand) and dos.PutStr entirely through GENERATED crossings - none of them hand-written."
+	@grep -q 'unknown tag 8fffffff.*graphics.best_mode' build/t3gen-out.txt || { \
+		echo "[T3TAG] FAIL: unknown tag was not reported by domain:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3TAG\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@echo "[T3GEN] PASS: policy-compiled DateStamp IN/OUT structures and graphics/cybergraphics TagItems ran in native AROS; scalar/CSTR tags and TAG_MORE/SKIP worked, and unknown tags failed closed by domain."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
