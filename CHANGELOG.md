@@ -17,6 +17,14 @@
   producing plausible garbage at run time.
 - **A buffer size is treated as a limit, not a suggestion.** A program that asks
   for part of a structure gets exactly that much filled and not one byte more.
+- **Then it got four more calls further in.** It asks for the Workbench screen,
+  clears the processor caches, loads its own plug-in library from the package,
+  and does floating-point maths. All four now work: 62 more system calls are
+  served, including the whole IEEE double-precision maths set, which a paint
+  program cannot start without.
+- **A program's own bundled libraries are found again.** The search stopped at
+  the first file with a matching name, which on a running AROS is AROS's own
+  native library, not the 68k one the program shipped. It now keeps looking.
 
 ## 2026-08-02 - The 68k translator now checks itself against a second implementation
 
