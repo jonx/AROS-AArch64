@@ -36,7 +36,7 @@ INPUT   ?= ping\nticks\nquit\n
 # this one is the host/graft layer. Override if your checkout is elsewhere.
 AROS_SRC ?= $(HOME)/Source/aros-upstream
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-jit68k-conform hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1269,6 +1269,51 @@ hosted-jit68k-j5n: | build
 		-o build/host-jit68k-j5n
 	APPS68K_DIR=hosted/jit68k/apps68k BIN=build/host-jit68k-j5n TIMEOUT=40 \
 		./harness/run-hosted.sh '[J5n] PASS'
+
+# [J5v] THE TRANSLATOR CONFORMANCE SUITE. One tiny program per (instruction,
+# addressing-mode) pair, each run through BOTH the JIT and the interpreter
+# oracle, comparing the final register file and memory. The oracle decodes
+# every mode in plain C with no register allocator and no emission layer, so
+# where they disagree the JIT is what is wrong.
+#
+# This exists because every translator bug so far was found by a real program
+# dying days later, in a place unrelated to the cause. A program only exercises
+# the modes its compiler happened to emit; this exercises all of them.
+#
+# NOT the lockstep differ: that compares at block boundaries, where the two
+# engines legitimately line up at transiently different points (see run68k.c).
+# Comparing the final state of a small program has no such ambiguity.
+hosted-jit68k-conform: | build
+	@python3 graft/gen-68k-conformance build/conform
+	@for f in build/conform/*.s; do \
+		hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+			-o "$${f%.s}.exe" "$$f" >/dev/null 2>&1 || \
+			{ echo "conform: $$f did not assemble"; exit 1; }; \
+	done
+	mkdir -p build/emu68-darwin
+	for f in M68k_LINE0 M68k_LINE4 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE M68k_MOVE M68k_MULDIV M68k_CC; do \
+		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
+	done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox
+	clang -arch arm64 -O2 -Wall -Ihosted/jit68k -Ihosted/jit68k/emu68 \
+		-Ihosted/jit68k/apps68k -Wno-unused-function -Wno-xor-used-as-pow \
+		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c \
+		hosted/jit68k/j5c_ra.c \
+		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5n_diag.c hosted/jit68k/j5n_symbols.c \
+		hosted/jit68k/j5v_conform.c \
+		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
+		build/emu68-darwin/M68k_LINE0.c build/emu68-darwin/M68k_LINE4.c \
+		build/emu68-darwin/M68k_LINE5.c build/emu68-darwin/M68k_LINE8.c \
+		build/emu68-darwin/M68k_LINE9.c build/emu68-darwin/M68k_LINEB.c \
+		build/emu68-darwin/M68k_LINEC.c build/emu68-darwin/M68k_LINED.c \
+		build/emu68-darwin/M68k_LINEE.c build/emu68-darwin/M68k_MOVE.c \
+		build/emu68-darwin/M68k_MULDIV.c build/emu68-darwin/M68k_EA.c \
+		build/emu68-darwin/M68k_CC.c \
+		-o build/host-jit68k-conform
+	@build/host-jit68k-conform build/conform
 
 # [J5o] THE 68881/68882 FPU CORE: the FIRST corpus program to use the FPU coprocessor (line-F).
 # Drives Emu68's REAL EMIT_FPU decoder (the verbatim, quarantined M68k_LINEF.c) — FMOVE (reg<->
