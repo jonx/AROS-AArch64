@@ -29,6 +29,12 @@
   Amiga pattern for a library to hand each program a private instance of itself,
   and Photogenics's plug-in library does exactly that. Two callers now get two
   working instances, each closable on its own.
+- **A library search bug in AROS itself, found by a paint program.** The loader
+  took the first file it managed to load and gave up if that file turned out not
+  to be a library. Any program shipping its own Amiga-built libraries beside it
+  therefore blocked AROS from finding its own, and this is not specific to 68k
+  programs: a native AROS program in the same directory hit it too. The search
+  now steps over a file with nothing to initialise and keeps looking.
 - **A program that asks a question now says what it asked.** Requesters are
   answered "no", because headless there is nobody to ask, but a program that
   then tidies up and exits looked identical to one that failed for no reason.
