@@ -1844,6 +1844,14 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genobjectbad hosted/emu68k/nativelib/genobjectbad.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genfacade hosted/emu68k/nativelib/genfacade.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genhook hosted/emu68k/nativelib/genhook.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genhookbad hosted/emu68k/nativelib/genhookbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genboopsi hosted/emu68k/nativelib/genboopsi.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genboopsibad hosted/emu68k/nativelib/genboopsibad.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe' EMU68K_MAX_SECONDS=8 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1866,7 +1874,21 @@ hosted-emu68k-t3gen:
 	@grep -q '\[T3FACADE\] PASS' build/t3gen-out.txt || { \
 		echo "[T3FACADE] FAIL: generated DiskObject facade was not guest-readable or failed closed:"; \
 		cat build/t3gen-out.txt; exit 1; }
-	@echo "[T3GEN] PASS: generated value structures, TagItems and typed native objects ran in AROS; object identity/refcounts survived roundtrips, and unknown tags plus stale tokens failed closed."
+	@grep -q '\[T3HOOK\] PASS' build/t3gen-out.txt || { \
+		echo "[T3HOOK] FAIL: native utility.library did not re-enter the guest Hook ABI:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'Hook entry at 00000000' build/t3gen-out.txt || { \
+		echo "[T3HOOK] FAIL: invalid Hook entry was not rejected at the boundary:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3HOOK-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q '\[T3BOOPSI\] PASS' build/t3gen-out.txt || { \
+		echo "[T3BOOPSI] FAIL: native NewObjectA did not re-enter the guest IClass dispatcher ABI:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'BOOPSI dispatcher at 00000000' build/t3gen-out.txt || { \
+		echo "[T3BOOPSI] FAIL: invalid IClass dispatcher was not rejected at the boundary:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3BOOPSI-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@echo "[T3GEN] PASS: generated values, tags, typed objects and callback bridges ran in AROS; Hook and BOOPSI re-entered guest code, while unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
