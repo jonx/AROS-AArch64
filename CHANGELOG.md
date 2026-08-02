@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-08-02 - 68k programs reach more of AROS, without the calls being written by hand
+
+- **The library bridge is now mostly generated.** When a 68k program calls an
+  AmigaOS library, something has to turn its 68k registers into a real native
+  AROS call. Those crossings were being written out one at a time. AROS already
+  describes every library vector precisely (its C prototype and which 68k
+  register each argument arrives in), so they are now *derived* from that
+  description instead: 64 crossings across dos, exec, utility, intuition,
+  graphics, icon and commodities, none of them hand-written. Programs get
+  pattern matching, string and case handling, environment variables, file
+  attributes and more, and the list grows when AROS's own does.
+- **A generated crossing never overrides a considered one.** Hand-written cases
+  run first; the derived table is the fallback. Where a signature is not the
+  whole truth, the call is refused by name with the reason recorded rather than
+  guessed at. `utility.UDivMod32` is the example worth having: its prototype
+  says it returns one value, but it really returns a quotient *and* a remainder
+  in a second register, so generating it would have produced silently wrong
+  arithmetic with no crash to notice.
+- **A guest cannot reach past its sandbox into the machine.** Several
+  kernel-level exec calls look trivially simple and would have been swept in
+  (rebooting, disabling interrupts, dropping into the debugger, blocking the
+  task that hosts the emulator). exec is now allowlisted rather than
+  denylisted, so the default for a kernel API is "no".
+
 ## 2026-08-02 - Copy and paste work in the shell again, in both directions
 
 - **Paste into the shell works.** Right-Amiga+V (either ⌘ on a Mac keyboard,

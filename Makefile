@@ -32,7 +32,11 @@ MARKERS ?= [M2] [M3] [M4] [M5] [M6] [M7] [M8] [M9] [M10a] [M10]
 # Keystrokes fed to the M8 shell over the serial socket (\n decoded by printf %b).
 INPUT   ?= ping\nticks\nquit\n
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-test clean
+# The AROS OS source tree (kernel, modules, libraries) lives OUTSIDE this repo;
+# this one is the host/graft layer. Override if your checkout is elsewhere.
+AROS_SRC ?= $(HOME)/Source/aros-upstream
+
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1693,6 +1697,21 @@ hosted-emu68k-t3readargs: emu68k-dylib
 	build/host-emu68k-t3ra "" >/dev/null 2>&1; rc=$$?; \
 	[ "$$rc" = "2" ] || { echo "[T3RA] FAIL: missing /A argument should fail (got $$rc)"; exit 1; }; \
 	echo "[T3RA] PASS: a 68k program parsed \"FILE/A,COUNT/N,ALL/S\" through ReadArgs and read back the string it produced; a missing required argument failed the AmigaDOS way."
+
+# [T3a] The GENERATED half of the library bridge. Two checks, because they fail
+# in different ways: --check catches a generated file that drifted from the
+# .conf it came from, and the 68k program proves the emitted crossings actually
+# work in-OS. It has to run on booted AROS - the generated table lives in
+# emu68k.library, so a host-side harness with a stub oscall would not touch it.
+hosted-emu68k-t3gen:
+	python3 graft/gen-emu68k-bridge --check $(AROS_SRC)/arch/all-darwin/libs/emu68k/
+	@mkdir -p build/t3gen && rm -f build/t3gen/*
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genbridge hosted/emu68k/nativelib/genbridge.s >/dev/null
+	@EMU68K_MAX_SECONDS=8 ./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
+	grep -q '\[T3GEN\] PASS' build/t3gen-out.txt || { \
+		echo "[T3GEN] FAIL:"; cat build/t3gen-out.txt; exit 1; }
+	@echo "[T3GEN] PASS: a 68k program drove dos.ParsePattern/MatchPattern (D-register arguments), utility.Stricmp (A-register arguments, second library opened on demand) and dos.PutStr entirely through GENERATED crossings - none of them hand-written."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
