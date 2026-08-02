@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-08-02 - A commercial Amiga paint program gets past its first system call
+
+- **Photogenics 1.2 asks AROS for the system preferences and gets them.** It is
+  a 1995 commercial paint program, and the first real call it makes is for the
+  whole `Preferences` structure: fonts, key repeat rates, the mouse pointer
+  sprite, printer settings. Handing that to a 68k program means rebuilding 232
+  bytes field by field, in the byte order and at the offsets a 68k program
+  expects. It now gets exactly what a native AROS program gets, checked field
+  for field against the same call made natively in the same boot.
+- **Three kinds of field that used to be quietly skipped now cross.** Structures
+  nested inside structures, arrays of numbers, and a two-byte boolean that had
+  been taken for four bytes and would have overwritten the field after it. The
+  layout tool now refuses to emit any field it believes is wider than the gap to
+  the next one, so that class of mistake fails loudly at build time instead of
+  producing plausible garbage at run time.
+- **A buffer size is treated as a limit, not a suggestion.** A program that asks
+  for part of a structure gets exactly that much filled and not one byte more.
+
 ## 2026-08-02 - The 68k translator now checks itself against a second implementation
 
 - **A conformance suite covers the addressing modes**, not just whole programs.

@@ -1859,8 +1859,10 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genosobjects hosted/emu68k/nativelib/genosobjects.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genosobjectsbad hosted/emu68k/nativelib/genosobjectsbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genprefs hosted/emu68k/nativelib/genprefs.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
-	CORPUS_ORACLE='C:CatalogProbe' EMU68K_MAX_SECONDS=8 \
+	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=8 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
 	grep -q '\[T3GEN\] PASS' build/t3gen-out.txt || { \
 		echo "[T3GEN] FAIL:"; cat build/t3gen-out.txt; exit 1; }
@@ -1902,7 +1904,16 @@ hosted-emu68k-t3gen:
 		echo "[T3OSOBJ] FAIL: disposed Region handle was not rejected:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3OSOBJ-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
-	@echo "[T3GEN] PASS: generated values, tags, typed objects and callback bridges ran in AROS; Hook and BOOPSI re-entered guest code, while unknown tags, stale tokens and invalid callback addresses failed closed."
+	@grep -q '\[T3PREF\] PASS' build/t3gen-out.txt || { \
+		echo "[T3PREF] FAIL: size-limited struct Preferences crossing failed:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@g="$$(sed -n 's/.*\[T3PREF-GUEST\] //p' build/t3gen-out.txt | tr -d '\r')"; \
+	n="$$(sed -n 's/.*\[T3PREF-NATIVE\] //p' build/t3gen-out.txt | tr -d '\r')"; \
+	[ -n "$$g" ] && [ "$$g" = "$$n" ] || { \
+		echo "[T3PREF] FAIL: the guest's Preferences do not match the native oracle's."; \
+		echo "  guest:  $$g"; echo "  native: $$n"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@echo "[T3GEN] PASS: generated values, tags, typed objects and callback bridges ran in AROS; Hook and BOOPSI re-entered guest code, a whole size-limited struct Preferences matched the native oracle field for field, while unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
