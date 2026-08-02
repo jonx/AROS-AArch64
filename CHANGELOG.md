@@ -7,6 +7,11 @@
   LHA that other tools read, and the extracted file is byte-identical to the
   original. This is a 1991 Amiga binary doing its actual job on an Apple Silicon
   Mac, not a port and not a rebuild.
+- **Two more programs from the test set now run**, and one was being blamed
+  unfairly. AddText had been reported as needing a full Amiga emulator because
+  it appeared to touch the hardware; it never did, it was being sent to a wrong
+  address by the bug above. Any program previously rejected that way is worth
+  retrying.
 - **Structure layouts are derived from the OS, not typed in.** An AmigaOS
   structure and a native AROS one differ in byte order, pointer width and
   alignment, so anything crossing between a 68k program and AROS has to be
