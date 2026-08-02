@@ -25,6 +25,15 @@
 - **A program's own bundled libraries are found again.** The search stopped at
   the first file with a matching name, which on a running AROS is AROS's own
   native library, not the 68k one the program shipped. It now keeps looking.
+- **Libraries that give every caller its own copy now work.** It is an ordinary
+  Amiga pattern for a library to hand each program a private instance of itself,
+  and Photogenics's plug-in library does exactly that. Two callers now get two
+  working instances, each closable on its own.
+- **A program that asks a question now says what it asked.** Requesters are
+  answered "no", because headless there is nobody to ask, but a program that
+  then tidies up and exits looked identical to one that failed for no reason.
+  The first thing this revealed was Photogenics asking for a library we were not
+  offering it, which is now fixed.
 
 ## 2026-08-02 - The 68k translator now checks itself against a second implementation
 

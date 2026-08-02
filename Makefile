@@ -1776,6 +1776,8 @@ hosted-emu68k-t3guestlive: emu68k-dylib
 		-o build/emu68k-nativelib/cyclea.library hosted/emu68k/nativelib/cyclea.s
 	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/emu68k-nativelib/cycleb.library hosted/emu68k/nativelib/cycleb.s
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/emu68k-nativelib/clone.library hosted/emu68k/nativelib/clonelib.s
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
 		hosted/emu68k/t3e_live_test.c -o build/host-emu68k-t3guestlive
 	build/host-emu68k-t3guestlive build/emu68k-nativelib/guestopen.exe
