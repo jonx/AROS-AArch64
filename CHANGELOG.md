@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-08-02 - The 68k engine finds library calls it used to walk straight past
+
+- **A whole class of silent failure is gone.** A 68k program does not always
+  call a library the textbook way. It copies the base into another register,
+  hoists the call address out of a loop, or jumps straight to it. The engine
+  only recognised some of those spellings, and missing one was silent: it jumped
+  into the middle of the library's data and started interpreting it as
+  instructions, failing thousands of steps later at an address with no visible
+  connection to the program. lha and ADocReader both died this way. Both now get
+  through, and every program in the test set that used to fail this way now
+  either runs or names exactly what it still needs.
+- **Jump tables are understood.** The compiled form of a `switch` statement was
+  not recognised as a branch at all, so the decoder ran off the end of the
+  function into the table itself.
+- **Twenty libraries are bridged instead of seven**, 99 calls instead of 64,
+  including the Amiga floating-point libraries, which turn out to need no
+  hand-written code at all. Adding another library is now one name on a list.
+
 ## 2026-08-02 - 68k programs reach more of AROS, without the calls being written by hand
 
 - **The library bridge is now mostly generated.** When a 68k program calls an
