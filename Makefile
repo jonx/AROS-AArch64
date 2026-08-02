@@ -1830,6 +1830,8 @@ hosted-emu68k-t3fmt:
 # work in-OS. It has to run on booted AROS - the generated table lives in
 # emu68k.library, so a host-side harness with a stub oscall would not touch it.
 hosted-emu68k-t3gen:
+	python3 graft/gen-struct-layouts --emit \
+		$(AROS_SRC)/arch/all-darwin/libs/emu68k/emu68k_layouts.h --check
 	python3 graft/gen-emu68k-bridge --check $(AROS_SRC)/arch/all-darwin/libs/emu68k/
 	@mkdir -p build/t3gen && rm -f build/t3gen/*
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
@@ -1840,6 +1842,8 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genobject hosted/emu68k/nativelib/genobject.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genobjectbad hosted/emu68k/nativelib/genobjectbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genfacade hosted/emu68k/nativelib/genfacade.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe' EMU68K_MAX_SECONDS=8 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1859,6 +1863,9 @@ hosted-emu68k-t3gen:
 		echo "[T3OBJ] FAIL: released object token was not rejected:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3OBJ-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q '\[T3FACADE\] PASS' build/t3gen-out.txt || { \
+		echo "[T3FACADE] FAIL: generated DiskObject facade was not guest-readable or failed closed:"; \
+		cat build/t3gen-out.txt; exit 1; }
 	@echo "[T3GEN] PASS: generated value structures, TagItems and typed native objects ran in AROS; object identity/refcounts survived roundtrips, and unknown tags plus stale tokens failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
