@@ -36,7 +36,7 @@ INPUT   ?= ping\nticks\nquit\n
 # this one is the host/graft layer. Override if your checkout is elsewhere.
 AROS_SRC ?= $(HOME)/Source/aros-upstream
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt rawdofmt-blob hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1697,6 +1697,28 @@ hosted-emu68k-t3readargs: emu68k-dylib
 	build/host-emu68k-t3ra "" >/dev/null 2>&1; rc=$$?; \
 	[ "$$rc" = "2" ] || { echo "[T3RA] FAIL: missing /A argument should fail (got $$rc)"; exit 1; }; \
 	echo "[T3RA] PASS: a 68k program parsed \"FILE/A,COUNT/N,ALL/S\" through ReadArgs and read back the string it produced; a missing required argument failed the AmigaDOS way."
+
+VASM := hosted/jit68k/apps68k/.toolchain/vasmm68k_mot
+
+# Reassemble the in-guest OS routines into their checked-in C header.
+rawdofmt-blob:
+	python3 graft/gen-rawdofmt-blob $(VASM) hosted/emu68k/nativelib/rawdofmt.s \
+		hosted/emu68k/nativelib/rawdofmt_blob.h
+
+# [T3] exec.RawDoFmt, which runs IN THE GUEST because it calls the program's own
+# PutChProc once per character. Checks the blob has not drifted from its
+# assembly, then proves it in-OS with a 68k program that formats through a real
+# callback and compares the bytes it got back.
+hosted-emu68k-t3fmt:
+	python3 graft/gen-rawdofmt-blob $(VASM) hosted/emu68k/nativelib/rawdofmt.s \
+		hosted/emu68k/nativelib/rawdofmt_blob.h --check
+	@mkdir -p build/t3fmt && rm -f build/t3fmt/*
+	@$(VASM) -Fhunkexe -nosym -kick1hunks -o build/t3fmt/fmttest \
+		hosted/emu68k/nativelib/fmttest.s >/dev/null
+	@EMU68K_MAX_SECONDS=8 ./graft/68k-corpus build/t3fmt build/t3fmt-out.txt >/dev/null 2>&1; \
+	grep -q '\[T3FMT\] PASS' build/t3fmt-out.txt || { \
+		echo "[T3FMT] FAIL:"; cat build/t3fmt-out.txt; exit 1; }
+	@echo "[T3FMT] PASS: a 68k program formatted through exec.RawDoFmt running in the guest, driving its OWN PutChProc callback per character, and got back the exact bytes expected (strings, signed decimals, hex, width, zero-pad, left-align, .limit)."
 
 # [T3a] The GENERATED half of the library bridge. Two checks, because they fail
 # in different ways: --check catches a generated file that drifted from the
