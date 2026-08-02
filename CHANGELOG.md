@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-08-02 - LhA runs, and a whole class of silent 68k miscompilation is fixed
+
+- **68k programs can read their own data again.** Position-independent code, which
+  is to say every Amiga executable, reads its constants and its jump tables
+  relative to the program counter. That form of access was being computed from a
+  register this Mac does not let us use, so it silently returned the wrong bytes.
+  A program would then jump through a garbage table and execute its own data.
+  This affected everything that was not compiled a particular way, and it is
+  fixed; what is still unsupported now says so by name instead of reading a
+  wrong address.
+- **A run can no longer hang forever waiting for a dialog nobody can see.** When
+  a 68k program asked for a path that could not be resolved, AmigaOS raised its
+  usual "please insert volume" requester. Driven headlessly there is nobody to
+  answer, and the whole run stopped dead with nothing in the log. Those calls
+  now fail normally, which is what the program expects anyway.
+- **LhA, the classic Amiga archiver, runs.** It prints its banner, reads its
+  arguments, opens files and starts writing an archive. Directory scanning is
+  the next piece it needs.
+- **exec.RawDoFmt works**, which matters more than it sounds: it is the
+  formatting engine behind every Amiga program's printf. It calls back into the
+  program's own code once per character, so it now runs inside the emulated
+  program rather than being faked from outside.
+
 ## 2026-08-02 - The 68k engine finds library calls it used to walk straight past
 
 - **A whole class of silent failure is gone.** A 68k program does not always
