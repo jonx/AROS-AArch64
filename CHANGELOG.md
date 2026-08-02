@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-08-02 - The 68k translator now checks itself against a second implementation
+
+- **A conformance suite covers the addressing modes**, not just whole programs.
+  Every translator bug so far was found by a real program dying days later,
+  somewhere unrelated to the cause, because a program only exercises whatever
+  its compiler happened to emit. There is now one small test per instruction and
+  addressing-mode pair, each run through the translator and through an
+  independent interpreter, comparing registers, flags and memory. 103 of 104
+  agree exactly.
+- **It found a crash on its first run.** Any 68k program that read the processor
+  status register brought the whole thing down with an illegal instruction. That
+  is an ordinary thing for older code to do, and it would have surfaced sooner or
+  later as one more unexplained failure.
+- **Where the checker cannot check, it says so.** Cases the reference
+  implementation does not understand are listed by name rather than counted as
+  passes. That list is now down to one.
+
 ## 2026-08-02 - A real Amiga archiver compresses and extracts on AROS/aarch64
 
 - **LhA works.** The original 68k LhA 2.15, unmodified, compresses a file into
