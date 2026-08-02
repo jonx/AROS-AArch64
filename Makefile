@@ -1836,14 +1836,30 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genbridge hosted/emu68k/nativelib/genbridge.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/gentagbad hosted/emu68k/nativelib/gentagbad.s >/dev/null
-	@EMU68K_MAX_SECONDS=8 ./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genobject hosted/emu68k/nativelib/genobject.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genobjectbad hosted/emu68k/nativelib/genobjectbad.s >/dev/null
+	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
+	CORPUS_ORACLE='C:CatalogProbe' EMU68K_MAX_SECONDS=8 \
+	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
 	grep -q '\[T3GEN\] PASS' build/t3gen-out.txt || { \
 		echo "[T3GEN] FAIL:"; cat build/t3gen-out.txt; exit 1; }
+	@grep -q '\[T3CAT-NATIVE\].*NONNULL' build/t3gen-out.txt || { \
+		echo "[T3CAT-NATIVE] FAIL: exact native OpenCatalogA oracle did not open the installed catalog:"; \
+		cat build/t3gen-out.txt; exit 1; }
 	@grep -q 'unknown tag 8fffffff.*graphics.best_mode' build/t3gen-out.txt || { \
 		echo "[T3TAG] FAIL: unknown tag was not reported by domain:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3TAG\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
-	@echo "[T3GEN] PASS: policy-compiled DateStamp IN/OUT structures and graphics/cybergraphics TagItems ran in native AROS; scalar/CSTR tags and TAG_MORE/SKIP worked, and unknown tags failed closed by domain."
+	@grep -q '\[T3OBJ\] PASS' build/t3gen-out.txt || { \
+		echo "[T3OBJ] FAIL: typed native object roundtrip did not pass:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'stale or unknown Locale object token e680' build/t3gen-out.txt || { \
+		echo "[T3OBJ] FAIL: released object token was not rejected:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3OBJ-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@echo "[T3GEN] PASS: generated value structures, TagItems and typed native objects ran in AROS; object identity/refcounts survived roundtrips, and unknown tags plus stale tokens failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
