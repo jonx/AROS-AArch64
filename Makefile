@@ -1879,6 +1879,10 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genwindow hosted/emu68k/nativelib/genwindow.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genwindowbad hosted/emu68k/nativelib/genwindowbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/gengadget hosted/emu68k/nativelib/gengadget.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/gengadgetbad hosted/emu68k/nativelib/gengadgetbad.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=20 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1961,6 +1965,13 @@ hosted-emu68k-t3gen:
 		echo "[T3WINDOW] FAIL: invalid Window token was not rejected:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3WINDOW-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q '\[T3GADGET\] PASS' build/t3gen-out.txt || { \
+		echo "[T3GADGET] FAIL: linked Gadget/NewGadget lifecycle did not pass:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'stale or unknown Gadget object token' build/t3gen-out.txt || { \
+		echo "[T3GADGET] FAIL: freeing the family did not invalidate its member token:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3GADGET-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
 	@echo "[T3GEN] PASS: generated values, tags, typed objects, callbacks and terminated record arrays ran in AROS; ambiguous variants, unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
