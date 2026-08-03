@@ -1677,7 +1677,7 @@ run68k: libjit68k
 emu68k-dylib: libjit68k
 	clang -dynamiclib $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k -Ihosted/emu68k \
 		hosted/emu68k/emu68k_host.c hosted/emu68k/scan68k.c \
-		hosted/emu68k/guestlib68k.c \
+		hosted/emu68k/guestlib68k.c hosted/emu68k/bridge_lab.c \
 		hosted/jit68k/apps68k/stublib.c \
 		-Wl,-force_load,build/libjit68k.a \
 		-install_name @rpath/libemu68k.dylib \
@@ -1809,6 +1809,45 @@ hosted-emu68k-t3lha:
 
 hosted-emu68k-t3legacy:
 	@./graft/68k-legacy-suite
+
+# [BRIDGE LAB] Runtime CONTRACTS, checked from a real run's trace rather than
+# from the program's own output: a fixture can print PASS while violating an
+# invariant nobody looked at. The trace is the evidence and the report is the
+# assertion.
+hosted-emu68k-t3event:
+	@mkdir -p build/t3event
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3event/genport hosted/emu68k/nativelib/genport.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3event/genproc hosted/emu68k/nativelib/genproc.s >/dev/null
+	@rm -f $(HOME)/AROS/Shared/t3event.trace.jsonl
+	@EMU68K_BRIDGE_TRACE=$(HOME)/AROS/Shared/t3event.trace.jsonl \
+	EMU68K_MAX_SECONDS=30 CORPUS_TIMEOUT=150 \
+	./graft/68k-corpus build/t3event build/t3event-out.txt >/dev/null 2>&1
+	@grep -q '\[T3PORT\] PASS' build/t3event-out.txt || { \
+		echo "[T3EVENT] FAIL: the port fixture did not pass:"; \
+		cat build/t3event-out.txt; exit 1; }
+	@grep -q '\[T3PROC\] PASS' build/t3event-out.txt || { \
+		echo "[T3EVENT] FAIL: the process fixture did not pass:"; \
+		cat build/t3event-out.txt; exit 1; }
+	@./graft/bridge-lab report $(HOME)/AROS/Shared/t3event.trace.jsonl \
+		> build/t3event-report.json || { \
+		echo "[T3EVENT] FAIL: no report from the run's trace"; exit 1; }
+	@python3 -c "import json,sys; \
+r=json.load(open('build/t3event-report.json')); \
+f={x['contract']:x['status'] for x in r['findings']}; \
+bad=[c for c,s in f.items() if s not in ('supported',) and c!='scheduler.yield.frame_wait']; \
+print('[T3EVENT] contracts:', json.dumps(f)); \
+sys.exit(1) if bad else None" || { \
+		echo "[T3EVENT] FAIL: a supported runtime contract was violated:"; \
+		./graft/bridge-lab report $(HOME)/AROS/Shared/t3event.trace.jsonl --text; \
+		exit 1; }
+	@python3 -c "import json,sys; \
+r=json.load(open('build/t3event-report.json')); \
+sys.exit(0) if r.get('events',0) > 0 and r.get('program') is not None else sys.exit(1)" || { \
+		echo '[T3EVENT] FAIL: the recorder produced no run.start, so an empty'; \
+		echo '  trace and a run with no events cannot be told apart'; exit 1; }
+	@echo "[T3EVENT] PASS: the runtime contracts a real run exercises are checked from its own trace - ports own a task and a signal bit, only explicitly bound destinations receive native input, and no worker mailbox does."
 
 # Regenerate the m68k-vs-native structure layouts from the AROS headers.
 struct-layouts:
