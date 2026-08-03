@@ -1863,6 +1863,10 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genosobjectsbad hosted/emu68k/nativelib/genosobjectsbad.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genprefs hosted/emu68k/nativelib/genprefs.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genrecord hosted/emu68k/nativelib/genrecord.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genrecordbad hosted/emu68k/nativelib/genrecordbad.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=8 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1915,7 +1919,14 @@ hosted-emu68k-t3gen:
 		echo "[T3PREF] FAIL: the guest's Preferences do not match the native oracle's."; \
 		echo "  guest:  $$g"; echo "  native: $$n"; \
 		cat build/t3gen-out.txt; exit 1; }
-	@echo "[T3GEN] PASS: generated values, tags, typed objects and callback bridges ran in AROS; Hook and BOOPSI re-entered guest code, a whole size-limited struct Preferences matched the native oracle field for field, while unknown tags, stale tokens and invalid callback addresses failed closed."
+	@grep -q '\[T3RECORD\] PASS' build/t3gen-out.txt || { \
+		echo "[T3RECORD] FAIL: terminated NewMenu records did not cross and free cleanly:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'CreateMenusA.newmenu\[0\].nm_Type uses an unsupported variant' build/t3gen-out.txt || { \
+		echo "[T3RECORD] FAIL: image-valued NewMenu record was not refused precisely:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3RECORD-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@echo "[T3GEN] PASS: generated values, tags, typed objects, callbacks and terminated record arrays ran in AROS; ambiguous variants, unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
