@@ -1875,6 +1875,10 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/gennoop hosted/emu68k/nativelib/gennoop.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/gendrawbad hosted/emu68k/nativelib/gendrawbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genwindow hosted/emu68k/nativelib/genwindow.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genwindowbad hosted/emu68k/nativelib/genwindowbad.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=20 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1950,6 +1954,13 @@ hosted-emu68k-t3gen:
 		echo "[T3DRAW] FAIL: invalid embedded RastPort facade was not rejected:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3DRAW-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q '\[T3WINDOW\] PASS' build/t3gen-out.txt || { \
+		echo "[T3WINDOW] FAIL: Window facade or GadTools refresh lifecycle failed:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'stale or unknown Window object token 12345678' build/t3gen-out.txt || { \
+		echo "[T3WINDOW] FAIL: invalid Window token was not rejected:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3WINDOW-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
 	@echo "[T3GEN] PASS: generated values, tags, typed objects, callbacks and terminated record arrays ran in AROS; ambiguous variants, unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
