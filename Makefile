@@ -1812,7 +1812,8 @@ hosted-emu68k-t3legacy:
 # Regenerate the m68k-vs-native structure layouts from the AROS headers.
 struct-layouts:
 	python3 graft/gen-struct-layouts --emit \
-		$(AROS_SRC)/arch/all-darwin/libs/emu68k/emu68k_layouts.h
+		$(AROS_SRC)/arch/all-darwin/libs/emu68k/emu68k_layouts.h \
+		--emit-offsets hosted/emu68k/emu68k_guest_offsets.h
 
 # [T3] exec.RawDoFmt, which runs IN THE GUEST because it calls the program's own
 # PutChProc once per character. Checks the blob has not drifted from its
