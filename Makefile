@@ -1836,18 +1836,25 @@ hosted-emu68k-t3event:
 	@python3 -c "import json,sys; \
 r=json.load(open('build/t3event-report.json')); \
 f={x['contract']:x['status'] for x in r['findings']}; \
-bad=[c for c,s in f.items() if s not in ('supported',) and c!='scheduler.yield.frame_wait']; \
+want={'port.lifecycle':['supported'], \
+      'process.mailbox':['supported'], \
+      'scheduler.yield.frame_wait':['supported'], \
+      'event.native_port_binding':['supported','not-exercised']}; \
+bad=[(c,f.get(c)) for c,ok in want.items() if f.get(c) not in ok]; \
 print('[T3EVENT] contracts:', json.dumps(f)); \
-sys.exit(1) if bad else None" || { \
-		echo "[T3EVENT] FAIL: a supported runtime contract was violated:"; \
+print('[T3EVENT] MISMATCH:', bad) if bad else None; \
+sys.exit(1 if bad else 0)" || { \
+		echo "[T3EVENT] FAIL: a contract did not hold, or a fixture stopped"; \
+		echo "  exercising one it used to - not-exercised where supported was"; \
+		echo "  expected means the fixture regressed, not that the contract holds:"; \
 		./graft/bridge-lab report $(HOME)/AROS/Shared/t3event.trace.jsonl --text; \
 		exit 1; }
 	@python3 -c "import json,sys; \
 r=json.load(open('build/t3event-report.json')); \
-sys.exit(0) if r.get('events',0) > 0 and r.get('program') is not None else sys.exit(1)" || { \
+sys.exit(0) if r.get('events',0) > 0 and r.get('programs') else sys.exit(1)" || { \
 		echo '[T3EVENT] FAIL: the recorder produced no run.start, so an empty'; \
 		echo '  trace and a run with no events cannot be told apart'; exit 1; }
-	@echo "[T3EVENT] PASS: the runtime contracts a real run exercises are checked from its own trace - ports own a task and a signal bit, only explicitly bound destinations receive native input, and no worker mailbox does."
+	@echo "[T3EVENT] PASS: each runtime contract is asserted from the run's own trace, per contract - a contract the fixtures do not reach reports not-exercised rather than passing by silence. (event.native_port_binding is not yet covered by a fixture: it needs one that opens a window.)"
 
 # Regenerate the m68k-vs-native structure layouts from the AROS headers.
 struct-layouts:
