@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-08-03 - A 68k program can hand AROS structures it built itself
+
+- **A program's own gadgets now cross.** Classic Amiga code allocates its
+  `Gadget` list itself and gives it to Intuition, which then keeps and renders
+  those structures. Nothing issued a handle for them, so the bridge had nothing
+  to resolve and refused. A structure the program owns is now mirrored on the
+  native side under its own address, converted in and back out around every
+  call: it keeps its identity across calls, a linked family crosses whole, and
+  the program reads its own addresses back rather than native pointers. A field
+  the mirror cannot carry is named and refused on every crossing, not trusted
+  after the first one.
+- **A wrong stack-bounds offset is fixed.** A 68k program that asks its own
+  task where its stack is was reading two bytes off, and got a pointer to
+  nowhere. Those offsets are now derived from the headers and checked against
+  the AmigaOS ABI, so the whole class is gone rather than this one case.
+- **A hardware verdict says where it came from.** "This program wants the Amiga
+  hardware" used to give only an address. It now names the program counter and
+  the register carrying it, which is the difference between a diagnosis and a
+  guess.
+- **The bridge importer learned four things at once**, so whole libraries move
+  rather than one call at a time: a structure the program owns can cross by
+  value, a pointer stored into a helper's own scratch is not a lifetime
+  obligation, whether a call accepts NULL is read from the library's own source,
+  and an entry the importer wrote stays derivable so later improvements reach it.
+- **The 68k engine decodes `move.l table(pc),(a0)`** and its increment and
+  displacement forms, which ordinary code uses to fill a structure it just
+  allocated.
+
 ## 2026-08-02 - A commercial Amiga paint program gets past its first system call
 
 - **Photogenics 1.2 asks AROS for the system preferences and gets them.** It is
