@@ -1873,6 +1873,8 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genrefused hosted/emu68k/nativelib/genrefused.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/gennoop hosted/emu68k/nativelib/gennoop.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/gendrawbad hosted/emu68k/nativelib/gendrawbad.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=20 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1944,6 +1946,10 @@ hosted-emu68k-t3gen:
 		echo "[T3NOOP] FAIL: source-proven no-op read an argument or called native code:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3NOOP\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'stale or unknown RastPort object token 12345678' build/t3gen-out.txt || { \
+		echo "[T3DRAW] FAIL: invalid embedded RastPort facade was not rejected:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3DRAW-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
 	@echo "[T3GEN] PASS: generated values, tags, typed objects, callbacks and terminated record arrays ran in AROS; ambiguous variants, unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
