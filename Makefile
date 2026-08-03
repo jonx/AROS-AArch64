@@ -1867,8 +1867,10 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genrecord hosted/emu68k/nativelib/genrecord.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/genrecordbad hosted/emu68k/nativelib/genrecordbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genlayoutbad hosted/emu68k/nativelib/genlayoutbad.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
-	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=8 \
+	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=20 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
 	grep -q '\[T3GEN\] PASS' build/t3gen-out.txt || { \
 		echo "[T3GEN] FAIL:"; cat build/t3gen-out.txt; exit 1; }
@@ -1926,6 +1928,10 @@ hosted-emu68k-t3gen:
 		echo "[T3RECORD] FAIL: image-valued NewMenu record was not refused precisely:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3RECORD-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q 'tag GTMN_Checkmark in gadtools.layout_menus needs object policy' build/t3gen-out.txt || { \
+		echo "[T3LAYOUT] FAIL: Image-valued layout tag was not refused precisely:"; \
+		cat build/t3gen-out.txt; exit 1; }
+	@! grep -q '\[T3LAYOUT-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
 	@echo "[T3GEN] PASS: generated values, tags, typed objects, callbacks and terminated record arrays ran in AROS; ambiguous variants, unknown tags, stale tokens and invalid callback addresses failed closed."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
