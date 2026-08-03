@@ -1887,6 +1887,13 @@ hosted-emu68k-t3gen:
 		-o build/t3gen-gadget/gengadgetbad hosted/emu68k/nativelib/gengadgetbad.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen-menuitem/genmenuitem hosted/emu68k/nativelib/genmenuitem.s >/dev/null
+	@mkdir -p build/t3gen-owngad build/t3gen-owngadbad build/t3gen-owngadcyc
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen-owngad/genowngadget hosted/emu68k/nativelib/genowngadget.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen-owngadbad/genowngadgetbad hosted/emu68k/nativelib/genowngadgetbad.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen-owngadcyc/genowngadgetcycle hosted/emu68k/nativelib/genowngadgetcycle.s >/dev/null
 	@CORPUS_BEFORE='Assign LOCALE: SYS:Locale' \
 	CORPUS_ORACLE='C:CatalogProbe\nC:PrefsProbe' EMU68K_MAX_SECONDS=20 \
 	./graft/68k-corpus build/t3gen build/t3gen-out.txt >/dev/null 2>&1; \
@@ -1906,6 +1913,22 @@ hosted-emu68k-t3gen:
 	@grep -q '\[T3OBJ\] PASS' build/t3gen-out.txt || { \
 		echo "[T3OBJ] FAIL: typed native object roundtrip did not pass:"; \
 		cat build/t3gen-out.txt; exit 1; }
+	@EMU68K_MAX_SECONDS=20 CORPUS_TIMEOUT=120 \
+	./graft/68k-corpus build/t3gen-owngad build/t3gen-owngad-out.txt >/dev/null 2>&1
+	@EMU68K_MAX_SECONDS=20 CORPUS_TIMEOUT=120 \
+	./graft/68k-corpus build/t3gen-owngadbad build/t3gen-owngadbad-out.txt >/dev/null 2>&1
+	@EMU68K_MAX_SECONDS=20 CORPUS_TIMEOUT=120 \
+	./graft/68k-corpus build/t3gen-owngadcyc build/t3gen-owngadcyc-out.txt >/dev/null 2>&1
+	@grep -q '\[T3OWNGAD\] PASS' build/t3gen-owngad-out.txt || { \
+		echo "[T3OWNGAD] FAIL: a Gadget family the program owns did not cross:"; \
+		cat build/t3gen-owngad-out.txt; exit 1; }
+	@grep -q 'cannot carry' build/t3gen-owngadbad-out.txt || { \
+		echo "[T3OWNGADBAD] FAIL: a field the mirror cannot carry was not refused, "; \
+		echo "and it was set AFTER the mirror existed, so the per-crossing check is gone:"; \
+		cat build/t3gen-owngadbad-out.txt; exit 1; }
+	@grep -q 'exceeds .* members or contains a cycle' build/t3gen-owngadcyc-out.txt || { \
+		echo "[T3OWNGADCYC] FAIL: a cyclic family was not refused:"; \
+		cat build/t3gen-owngadcyc-out.txt; exit 1; }
 	@grep -q 'stale or unknown Locale object token e680' build/t3gen-out.txt || { \
 		echo "[T3OBJ] FAIL: released object token was not rejected:"; \
 		cat build/t3gen-out.txt; exit 1; }
