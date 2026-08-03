@@ -1888,6 +1888,9 @@ hosted-emu68k-t3gen:
 		-o build/t3gen-gadget/gengadgetbad hosted/emu68k/nativelib/gengadgetbad.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen-menuitem/genmenuitem hosted/emu68k/nativelib/genmenuitem.s >/dev/null
+	@mkdir -p build/t3proc
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3proc/genproc hosted/emu68k/nativelib/genproc.s >/dev/null
 	@mkdir -p build/t3port
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3port/genport hosted/emu68k/nativelib/genport.s >/dev/null
@@ -1925,6 +1928,11 @@ hosted-emu68k-t3gen:
 	./graft/68k-corpus build/t3gen-owngadcyc build/t3gen-owngadcyc-out.txt >/dev/null 2>&1
 	@EMU68K_MAX_SECONDS=20 CORPUS_TIMEOUT=120 \
 	./graft/68k-corpus build/t3port build/t3port-out.txt >/dev/null 2>&1
+	@EMU68K_MAX_SECONDS=30 CORPUS_TIMEOUT=120 \
+	./graft/68k-corpus build/t3proc build/t3proc-out.txt >/dev/null 2>&1
+	@grep -q '\[T3PROC\] PASS' build/t3proc-out.txt || { \
+		echo "[T3PROC] FAIL: two 68k processes did not exchange a message:"; \
+		cat build/t3proc-out.txt; exit 1; }
 	@grep -q '\[T3PORT\] PASS' build/t3port-out.txt || { \
 		echo "[T3PORT] FAIL: a message port the program owns did not work:"; \
 		cat build/t3port-out.txt; exit 1; }
