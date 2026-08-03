@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-08-03 - A run becomes evidence
+
+- **Bridge Lab.** Running a classic program now produces a record of what it
+  asked the system for - the processes it started, the ports it made, what it
+  waited on, where input was routed - and turns that into a verdict per
+  capability rather than a wall of output. It says which capabilities were used
+  correctly, which are missing, and what would settle an open question. It can
+  never quietly widen what the system accepts: a recording is evidence, and only
+  a reviewed decision changes what gets served.
+- **It immediately found a real one.** Photogenics starts a helper process that
+  polls without ever pausing, so the part of the program that owns the mouse and
+  menu input never gets a turn. That is a general scheduling question - a task
+  that never pauses must not starve the others - and it is now recorded as such,
+  with the evidence attached, rather than being a mystery about one program.
+
 ## 2026-08-03 - A 1995 commercial paint program draws its interface
 
 - **Photogenics 1.2 runs.** It opens its screen, builds its gadgets, starts its
