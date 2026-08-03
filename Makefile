@@ -246,7 +246,8 @@ cocoametal-d2t: | build
 cocoametal-input: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
-		hosted/cocoametal/cocoametal_control.m hosted/cocoametal/input_test.m \
+		hosted/cocoametal/cocoametal_control.m hosted/cocoametal/cocoametal_gpu.m \
+		hosted/cocoametal/input_test.m \
 		-o build/cocoametal-input \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -267,7 +268,7 @@ cocoametal-settings: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
-		hosted/cocoametal/settings_test.m \
+		hosted/cocoametal/cocoametal_gpu.m hosted/cocoametal/settings_test.m \
 		-o build/cocoametal-settings \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -289,7 +290,7 @@ cocoametal-fullscreen: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
-		hosted/cocoametal/fullscreen_test.m \
+		hosted/cocoametal/cocoametal_gpu.m hosted/cocoametal/fullscreen_test.m \
 		-o build/cocoametal-fullscreen \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -312,7 +313,7 @@ cocoametal-livedraw: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
-		hosted/cocoametal/livedraw_test.m \
+		hosted/cocoametal/cocoametal_gpu.m hosted/cocoametal/livedraw_test.m \
 		-o build/cocoametal-livedraw \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -329,7 +330,7 @@ cocoametal-show: | build
 	clang -fobjc-arc -arch arm64 -O2 -Wall -Wextra \
 		hosted/cocoametal/cocoametal.m hosted/cocoametal/cocoametal_window.m \
 		hosted/cocoametal/cocoametal_settings.m hosted/cocoametal/cocoametal_control.m \
-		hosted/cocoametal/show.m \
+		hosted/cocoametal/cocoametal_gpu.m hosted/cocoametal/show.m \
 		-o build/cocoametal-show \
 		-framework Metal -framework Foundation -framework CoreGraphics \
 		-framework QuartzCore -framework AppKit -framework CoreFoundation
@@ -1887,6 +1888,9 @@ hosted-emu68k-t3gen:
 		-o build/t3gen-gadget/gengadgetbad hosted/emu68k/nativelib/gengadgetbad.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen-menuitem/genmenuitem hosted/emu68k/nativelib/genmenuitem.s >/dev/null
+	@mkdir -p build/t3port
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3port/genport hosted/emu68k/nativelib/genport.s >/dev/null
 	@mkdir -p build/t3gen-owngad build/t3gen-owngadbad build/t3gen-owngadcyc
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen-owngad/genowngadget hosted/emu68k/nativelib/genowngadget.s >/dev/null
@@ -1919,6 +1923,11 @@ hosted-emu68k-t3gen:
 	./graft/68k-corpus build/t3gen-owngadbad build/t3gen-owngadbad-out.txt >/dev/null 2>&1
 	@EMU68K_MAX_SECONDS=20 CORPUS_TIMEOUT=120 \
 	./graft/68k-corpus build/t3gen-owngadcyc build/t3gen-owngadcyc-out.txt >/dev/null 2>&1
+	@EMU68K_MAX_SECONDS=20 CORPUS_TIMEOUT=120 \
+	./graft/68k-corpus build/t3port build/t3port-out.txt >/dev/null 2>&1
+	@grep -q '\[T3PORT\] PASS' build/t3port-out.txt || { \
+		echo "[T3PORT] FAIL: a message port the program owns did not work:"; \
+		cat build/t3port-out.txt; exit 1; }
 	@grep -q '\[T3OWNGAD\] PASS' build/t3gen-owngad-out.txt || { \
 		echo "[T3OWNGAD] FAIL: a Gadget family the program owns did not cross:"; \
 		cat build/t3gen-owngad-out.txt; exit 1; }
