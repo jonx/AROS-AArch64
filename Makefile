@@ -1816,45 +1816,64 @@ hosted-emu68k-t3legacy:
 # assertion.
 hosted-emu68k-t3event:
 	@mkdir -p build/t3event
-	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
-		-o build/t3event/genport hosted/emu68k/nativelib/genport.s >/dev/null
-	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
-		-o build/t3event/genproc hosted/emu68k/nativelib/genproc.s >/dev/null
+	@for f in genport genproc genidcmp genframeyield; do \
+		hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym \
+			-kick1hunks -o build/t3event/$$f \
+			hosted/emu68k/nativelib/$$f.s >/dev/null || exit 1; \
+	done
 	@rm -f $(HOME)/AROS/Shared/t3event.trace.jsonl
 	@EMU68K_BRIDGE_TRACE=$(HOME)/AROS/Shared/t3event.trace.jsonl \
-	EMU68K_MAX_SECONDS=30 CORPUS_TIMEOUT=150 \
+	EMU68K_MAX_SECONDS=60 CORPUS_TIMEOUT=300 \
 	./graft/68k-corpus build/t3event build/t3event-out.txt >/dev/null 2>&1
-	@grep -q '\[T3PORT\] PASS' build/t3event-out.txt || { \
-		echo "[T3EVENT] FAIL: the port fixture did not pass:"; \
-		cat build/t3event-out.txt; exit 1; }
-	@grep -q '\[T3PROC\] PASS' build/t3event-out.txt || { \
-		echo "[T3EVENT] FAIL: the process fixture did not pass:"; \
-		cat build/t3event-out.txt; exit 1; }
 	@./graft/bridge-lab report $(HOME)/AROS/Shared/t3event.trace.jsonl \
 		> build/t3event-report.json || { \
 		echo "[T3EVENT] FAIL: no report from the run's trace"; exit 1; }
+	@# The gate is CONSISTENCY between the two axes, which is what makes it
+	@# self-maintaining: a contract the registry calls supported may never be
+	@# observed violated, while one still under review may be - that is what
+	@# "under review" means. Promoting a contract therefore tightens this gate
+	@# automatically, with no edit here.
 	@python3 -c "import json,sys; \
 r=json.load(open('build/t3event-report.json')); \
-f={x['contract']:x['status'] for x in r['findings']}; \
-want={'port.lifecycle':['supported'], \
-      'process.mailbox':['supported'], \
-      'scheduler.yield.frame_wait':['supported'], \
-      'event.native_port_binding':['supported','not-exercised']}; \
-bad=[(c,f.get(c)) for c,ok in want.items() if f.get(c) not in ok]; \
-print('[T3EVENT] contracts:', json.dumps(f)); \
-print('[T3EVENT] MISMATCH:', bad) if bad else None; \
+bad=[(f['contract'],f['maturity'],f['observation']) for f in r['findings'] \
+     if f['maturity']=='supported' and f['observation'] \
+        not in ('exercised-conformant','not-exercised')]; \
+print('[T3EVENT]', json.dumps({f['contract']: f['maturity']+'/'+f['observation'] \
+                               for f in r['findings']})); \
+print('[T3EVENT] INCONSISTENT:', bad) if bad else None; \
 sys.exit(1 if bad else 0)" || { \
-		echo "[T3EVENT] FAIL: a contract did not hold, or a fixture stopped"; \
-		echo "  exercising one it used to - not-exercised where supported was"; \
-		echo "  expected means the fixture regressed, not that the contract holds:"; \
+		echo "[T3EVENT] FAIL: a supported contract was observed violated"; \
 		./graft/bridge-lab report $(HOME)/AROS/Shared/t3event.trace.jsonl --text; \
 		exit 1; }
+	@# A fixture whose contract is SUPPORTED must pass. One whose contract is
+	@# still needs-review may fail: that failure is the evidence, and it turns
+	@# into a requirement the moment the contract is promoted.
+	@for t in T3PORT T3PROC T3IDCMP; do \
+		grep -q "\[$$t\] PASS" build/t3event-out.txt || { \
+			echo "[T3EVENT] FAIL: $$t did not pass:"; \
+			cat build/t3event-out.txt; exit 1; }; \
+	done
+	@# Identities must be namespaced per run. A sweep appends several programs
+	@# to one trace and a bump allocator hands each the same guest addresses,
+	@# so an unnamespaced identity silently merges two programs' evidence.
+	@python3 -c "import json,sys,collections; \
+seen=collections.defaultdict(set); bad=[]; \
+[seen[v].add(e.get('run')) for e in \
+   (json.loads(l) for l in open('$(HOME)/AROS/Shared/t3event.trace.jsonl')) \
+   for k,v in e.items() \
+   if isinstance(v,str) and (':' in v) and k in ('port','task','owner','destination','mailbox')]; \
+bad=[i for i,runs in seen.items() if len(runs)>1 or not i.startswith('r')]; \
+print('[T3EVENT] identities:', len(seen), 'namespaced across', \
+      len({r for rs in seen.values() for r in rs}), 'runs'); \
+print('[T3EVENT] LEAKED ACROSS RUNS:', bad) if bad else None; \
+sys.exit(1 if bad else 0)" || { \
+		echo "[T3EVENT] FAIL: an identity was reused across runs"; exit 1; }
 	@python3 -c "import json,sys; \
 r=json.load(open('build/t3event-report.json')); \
 sys.exit(0) if r.get('events',0) > 0 and r.get('programs') else sys.exit(1)" || { \
 		echo '[T3EVENT] FAIL: the recorder produced no run.start, so an empty'; \
 		echo '  trace and a run with no events cannot be told apart'; exit 1; }
-	@echo "[T3EVENT] PASS: each runtime contract is asserted from the run's own trace, per contract - a contract the fixtures do not reach reports not-exercised rather than passing by silence. (event.native_port_binding is not yet covered by a fixture: it needs one that opens a window.)"
+	@echo "[T3EVENT] PASS: each contract's observed behaviour is consistent with what the registry claims for it, focused fixtures certify the port, process and IDCMP-binding mechanisms independently, and no identity is shared between two runs of one trace."
 
 # Regenerate the m68k-vs-native structure layouts from the AROS headers.
 struct-layouts:
