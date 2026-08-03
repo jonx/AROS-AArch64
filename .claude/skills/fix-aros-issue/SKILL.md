@@ -24,6 +24,10 @@ ships. The work is published as John's, product-neutral, with no AI attribution.
   in the PR message / commit message / GitHub comment, not the source.
 - **Name no other products or brands** in code, comments, or PR text.
 - Plain, concise English. No em-dashes (John is French, non-native).
+- **A wrapped-grep "no matches" is not evidence.** The shell `grep` here skips
+  non-UTF-8 files silently, and 21% of `../aros-upstream` is non-UTF-8. Before
+  claiming something is absent, or counting call sites, follow
+  [search-evidence](../search-evidence/SKILL.md).
 
 ## Repos and trees (see docs/features/build + deployment)
 
