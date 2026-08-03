@@ -1,7 +1,39 @@
 # Changelog
 
+## 2026-08-03 - A 1995 commercial paint program draws its interface
+
+- **Photogenics 1.2 runs.** It opens its screen, builds its gadgets, starts its
+  helper process and draws its whole interface: the menu bar, the tool palette,
+  the images panel, the canvas. No capability gap, nothing refused. It is a
+  commercial Amiga application from 1995 running on an ARM Mac, translated
+  instruction by instruction, calling the real AROS libraries.
+- **68k programs can have more than one process.** A program that asks the
+  system to start a second thread of its own code now gets one. Both are 68k and
+  everything they share is memory, so they take turns rather than run at the
+  same instant: a program that cannot go on hands its turn to the other one and
+  picks up where it left off when the answer arrives. That removes the whole
+  class of problems running them side by side would have created, and a genuine
+  deadlock is reported rather than hung.
+- **Message ports work.** Sending a message, taking it, and answering it - the
+  shape every interactive Amiga program is written in, and there was none of it
+  before. A wait that nothing could ever satisfy says so instead of hanging.
+- **A program that builds its own gadgets is understood.** Classic code
+  allocates its interface itself and hands it over; that memory is now mirrored
+  for the library and kept in step in both directions, with anything the mirror
+  cannot carry named rather than quietly dropped.
+- **Programs stopped being turned away for no reason.** One instruction in a
+  program's startup code used to route the whole thing to "needs a real Amiga",
+  which is what had been hiding Personal Paint. The report of what this system
+  can serve was also years out of date and read from a list of two libraries
+  when there were eleven.
+
 ## 2026-08-03 - A 68k program can hand AROS structures it built itself
 
+- **The window says Macaros.** The title bar, the Settings windows and the names
+  of saved screenshots and recordings all read "AROS", the name of the system
+  running inside, instead of the name of the app running it. The host now titles
+  its own chrome from the app itself, so everything the Mac shows reads Macaros
+  and the display driver no longer decides what the app is called.
 - **A program's own gadgets now cross.** Classic Amiga code allocates its
   `Gadget` list itself and gives it to Intuition, which then keeps and renders
   those structures. Nothing issued a handle for them, so the bridge had nothing
