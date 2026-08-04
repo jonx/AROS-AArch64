@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-08-05 - Real Amiga system libraries run above the waterline
+
+- **A real m68k gadtools.library now runs as guest code end to end.** A test
+  program creates its gadget through the guest library's own BOOPSI class,
+  the class calls through to the native superclass, and attribute queries
+  answer correctly. This is the waterline model working: the original
+  library's behavior, byte for byte, with only the bottom system layer
+  translated.
+- **A crash can no longer take the whole system with it.** The 68k engine's
+  fault handling had three ways to wedge the machine at 100% CPU with no
+  recovery (a loop in a callback, a false stack alarm, and the crash
+  reporter crashing while reporting). All three are fixed: a broken program
+  now dies alone, with a report that names the exact native function that
+  faulted - which is how a week-old mystery turned out to be one missing
+  include line.
+
 ## 2026-08-03 - A run becomes evidence
 
 - **Bridge Lab.** Running a classic program now produces a record of what it
