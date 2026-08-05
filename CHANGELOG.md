@@ -2,6 +2,12 @@
 
 ## 2026-08-05 - Real Amiga system libraries run above the waterline
 
+- **Gadgets work fully with the real m68k gadtools.** Programs that bring
+  their own font and programs that use the screen's both build gadgets now,
+  the library's own gadget lists are walked correctly, and freeing a gadget
+  actually frees it instead of leaking. Programs that misuse the library
+  (double free, unsupported field, circular list) are still stopped and told
+  exactly what was wrong.
 - **A real m68k gadtools.library now runs as guest code end to end.** A test
   program creates its gadget through the guest library's own BOOPSI class,
   the class calls through to the native superclass, and attribute queries
