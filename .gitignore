@@ -7,6 +7,10 @@
 # build script regenerates it).
 **/target/
 
+# Python bytecode caches produced by generator validation.
+__pycache__/
+*.py[cod]
+
 
 # Compiled intermediates (regenerable; some embed the local build path in
 # debug info). The shader ships embedded as cmshader_metallib.h; .air/.metallib

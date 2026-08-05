@@ -1676,7 +1676,13 @@ run68k: libjit68k
 # reporting a capability gap, because the object had never been rebuilt).
 emu68k-dylib: libjit68k
 	clang -dynamiclib $(JIT68K_CFLAGS) -Ihosted/jit68k/apps68k -Ihosted/emu68k \
-		hosted/emu68k/emu68k_host.c hosted/emu68k/scan68k.c \
+		hosted/emu68k/emu68k_host.c hosted/emu68k/emu68k_exec.c \
+		hosted/emu68k/emu68k_dos.c hosted/emu68k/emu68k_graphics.c \
+		hosted/emu68k/emu68k_gadtools.c \
+		hosted/emu68k/emu68k_intuition.c hosted/emu68k/emu68k_layers.c \
+		hosted/emu68k/emu68k_utility.c hosted/emu68k/emu68k_cybergraphics.c \
+		hosted/emu68k/emu68k_taskresource.c hosted/emu68k/emu68k_timerdevice.c \
+		hosted/emu68k/scan68k.c \
 		hosted/emu68k/guestlib68k.c hosted/emu68k/bridge_lab.c \
 		hosted/jit68k/apps68k/stublib.c \
 		-Wl,-force_load,build/libjit68k.a \
@@ -1845,14 +1851,20 @@ sys.exit(1 if bad else 0)" || { \
 		echo "[T3EVENT] FAIL: a supported contract was observed violated"; \
 		./graft/bridge-lab report $(HOME)/AROS/Shared/t3event.trace.jsonl --text; \
 		exit 1; }
-	@# A fixture whose contract is SUPPORTED must pass. One whose contract is
-	@# still needs-review may fail: that failure is the evidence, and it turns
-	@# into a requirement the moment the contract is promoted.
-	@for t in T3PORT T3PROC T3IDCMP; do \
+	@# Every fixture below certifies a supported runtime contract and must pass.
+	@for t in T3PORT T3PROC T3IDCMP T3YIELD; do \
 		grep -q "\[$$t\] PASS" build/t3event-out.txt || { \
 			echo "[T3EVENT] FAIL: $$t did not pass:"; \
 			cat build/t3event-out.txt; exit 1; }; \
 	done
+	@python3 -c "import json,sys; \
+e=[json.loads(l) for l in open('$(HOME)/AROS/Shared/t3event.trace.jsonl')]; \
+b=[x for x in e if x.get('event')=='event.source.bind' and x.get('kind')=='idcmp']; \
+p=[x for x in e if x.get('event')=='event.pump' and x.get('matched_sources',0)>=2]; \
+ok=len(b)>=2 and bool(p) and len({x.get('destination') for x in b})==1; \
+print('[T3BROKER] PASS: typed shared-port sources matched without delivery' if ok \
+      else '[T3BROKER] FAIL: missing typed source or matched idle pump'); \
+sys.exit(0 if ok else 1)"
 	@# Identities must be namespaced per run. A sweep appends several programs
 	@# to one trace and a bump allocator hands each the same guest addresses,
 	@# so an unnamespaced identity silently merges two programs' evidence.
@@ -1907,6 +1919,20 @@ hosted-emu68k-t3gen:
 	python3 graft/gen-struct-layouts --emit \
 		$(AROS_SRC)/arch/all-darwin/libs/emu68k/emu68k_layouts.h --check
 	python3 graft/gen-emu68k-bridge --check $(AROS_SRC)/arch/all-darwin/libs/emu68k/
+	@# The .conf is the interface oracle and the hand-written bridge is the
+	@# semantic one: a constant written from memory calls the wrong vector,
+	@# and a derived crossing must never shadow a hand-written decision.
+	@for handler in \
+		hosted/emu68k/emu68k_exec.c \
+		hosted/emu68k/emu68k_dos.c \
+		hosted/emu68k/emu68k_graphics.c \
+		hosted/emu68k/emu68k_intuition.c \
+		hosted/emu68k/emu68k_layers.c \
+		hosted/emu68k/emu68k_utility.c \
+		hosted/emu68k/emu68k_cybergraphics.c \
+		hosted/emu68k/emu68k_gadtools.c; do \
+		python3 graft/gen-emu68k-bridge --validate-handwritten "$$handler" || exit $$?; \
+	done
 	@mkdir -p build/t3gen build/t3gen-gadget build/t3gen-menuitem && \
 		rm -f build/t3gen/* build/t3gen-gadget/* build/t3gen-menuitem/*
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
@@ -1943,6 +1969,8 @@ hosted-emu68k-t3gen:
 		-o build/t3gen/genrefused hosted/emu68k/nativelib/genrefused.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/gennoop hosted/emu68k/nativelib/gennoop.s >/dev/null
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3gen/genexecfull hosted/emu68k/nativelib/genexecfull.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
 		-o build/t3gen/gendrawbad hosted/emu68k/nativelib/gendrawbad.s >/dev/null
 	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
@@ -2061,7 +2089,7 @@ hosted-emu68k-t3gen:
 		echo "[T3LAYOUT] FAIL: Image-valued layout tag was not refused precisely:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3LAYOUT-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
-	@grep -q 'gadtools.library.GT_GetIMsg refused: IntuiMessage results need a guest-readable facade' build/t3gen-out.txt || { \
+	@grep -q 'gadtools.library.GT_FilterIMsg refused: filter returns an embedded or allocated mutable message' build/t3gen-out.txt || { \
 		echo "[T3REFUSED] FAIL: reviewed function refusal was not reported precisely:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3REFUSED\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
@@ -2069,6 +2097,8 @@ hosted-emu68k-t3gen:
 		echo "[T3NOOP] FAIL: source-proven no-op read an argument or called native code:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3NOOP\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
+	@grep -q '\[T3EXECFULL\] PASS' build/t3gen-out.txt || { \
+		echo "[T3EXECFULL] FAIL:"; cat build/t3gen-out.txt; exit 1; }
 	@grep -q 'stale or unknown RastPort object token 12345678' build/t3gen-out.txt || { \
 		echo "[T3DRAW] FAIL: invalid embedded RastPort facade was not rejected:"; \
 		cat build/t3gen-out.txt; exit 1; }
