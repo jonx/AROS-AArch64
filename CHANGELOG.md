@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-08-06 - Moonstone has a soundtrack
+
+- **The game plays music and combat sounds.** Moonstone on AROS was silent:
+  every other backend had a sound device and this one had none, so the six
+  tunes shipped with the game were dead weight. It now streams its own mixer
+  into AHI through the host CoreAudio driver, which also makes it the first
+  application on this port to stream audio rather than play one canned sample.
+- **The soundtrack ships in the release.** The 15 MB of music was excluded from
+  the app bundle for as long as nothing could play it; it is now part of the
+  embedded game data.
+- **Sound never costs you the game.** If no audio mode is available the game
+  says so in one line and plays on in silence. `Moonstone audio` plays a tune
+  for five seconds and reports whether the sound kept up, and
+  `MOONSTONE_AUDIO_FRAMES` trades buffering against latency for slower
+  machines.
+
 ## 2026-08-05 - Real Amiga system libraries run above the waterline
 
 - **Gadgets work fully with the real m68k gadtools.** Programs that bring
