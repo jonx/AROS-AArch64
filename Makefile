@@ -1860,10 +1860,12 @@ sys.exit(1 if bad else 0)" || { \
 	@python3 -c "import json,sys; \
 e=[json.loads(l) for l in open('$(HOME)/AROS/Shared/t3event.trace.jsonl')]; \
 b=[x for x in e if x.get('event')=='event.source.bind' and x.get('kind')=='idcmp']; \
+shared=[x for x in b if x.get('reason')=='ModifyIDCMP']; \
 p=[x for x in e if x.get('event')=='event.pump' and x.get('matched_sources',0)>=2]; \
-ok=len(b)>=2 and bool(p) and len({x.get('destination') for x in b})==1; \
+opened=any(x.get('reason')=='OpenWindowTagList' for x in b); \
+ok=len(shared)>=2 and bool(p) and len({x.get('destination') for x in shared})==1 and opened; \
 print('[T3BROKER] PASS: typed shared-port sources matched without delivery' if ok \
-      else '[T3BROKER] FAIL: missing typed source or matched idle pump'); \
+      else '[T3BROKER] FAIL: missing automatic window source, typed source, or matched idle pump'); \
 sys.exit(0 if ok else 1)"
 	@# Identities must be namespaced per run. A sweep appends several programs
 	@# to one trace and a bump allocator hands each the same guest addresses,
