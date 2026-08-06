@@ -38,8 +38,9 @@ AROS_SRC ?= $(HOME)/Source/aros-upstream
 M68K_AROS_BUILD ?= $(HOME)/aros-m68k-build
 M68K_AROS_GCC ?= $(M68K_AROS_BUILD)/bin/darwin-aarch64/tools/crosstools/m68k-aros-gcc
 ELF2HUNK ?= $(M68K_AROS_BUILD)/bin/darwin-aarch64/tools/elf2hunk
+M68K_LIBS_PATH ?= $(HOME)/Source/references/aros-m68k-20260804/libs
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3setsignal hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-emu68k-t3legacy hosted-emu68k-regina-fixtures hosted-jit68k-conform hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3setsignal hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3mui hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-emu68k-t3legacy hosted-emu68k-regina-fixtures hosted-jit68k-conform hosted-test clean
 
 build:
 	@mkdir -p build
@@ -2143,15 +2144,14 @@ hosted-emu68k-t3gen:
 	@grep -q '\[T3OWNGAD\] PASS' build/t3gen-owngad-out.txt || { \
 		echo "[T3OWNGAD] FAIL: a Gadget family the program owns did not cross:"; \
 		cat build/t3gen-owngad-out.txt; exit 1; }
-	@grep -q 'cannot carry' build/t3gen-owngadbad-out.txt || { \
-		echo "[T3OWNGADBAD] FAIL: a field the mirror cannot carry was not refused, "; \
-		echo "and it was set AFTER the mirror existed, so the per-crossing check is gone:"; \
+	@grep -q 'Image at .*outside guest memory' build/t3gen-owngadbad-out.txt || { \
+		echo "[T3OWNGADBAD] FAIL: an Image pointer set AFTER mirror creation was not revalidated and refused:"; \
 		cat build/t3gen-owngadbad-out.txt; exit 1; }
 	@grep -q 'exceeds .* members or contains a cycle' build/t3gen-owngadcyc-out.txt || { \
 		echo "[T3OWNGADCYC] FAIL: a cyclic family was not refused:"; \
 		cat build/t3gen-owngadcyc-out.txt; exit 1; }
-	@grep -q 'stale or unknown Locale object token e680' build/t3gen-out.txt || { \
-		echo "[T3OBJ] FAIL: released object token was not rejected:"; \
+	@grep -q 'stale or unknown Locale object token .*memory the program owns' build/t3gen-out.txt || { \
+		echo "[T3OBJ] FAIL: guest-owned memory was accepted as a native Locale facade:"; \
 		cat build/t3gen-out.txt; exit 1; }
 	@! grep -q '\[T3OBJ-BAD\] FAIL' build/t3gen-out.txt || { cat build/t3gen-out.txt; exit 1; }
 	@grep -q '\[T3FACADE\] PASS' build/t3gen-out.txt || { \
@@ -2230,6 +2230,29 @@ hosted-emu68k-t3gen:
 		echo "[T3MENUITEM] FAIL: Menu.FirstItem facade did not cross LayoutMenuItemsA:"; \
 		cat build/t3gen-menuitem-out.txt; exit 1; }
 	@echo "[T3GEN] PASS: generated values, tags, typed objects, callbacks and terminated record arrays ran in AROS; ambiguous variants, unknown tags, stale tokens and invalid callback addresses failed closed."
+
+# [T3MUI] An external 68k Zune class, not one compiled into muimaster.  This is
+# deliberately a separate breadth gate: it needs the m68k AROS build tree, and
+# its category/program/program corpus layout carries Busy.mcc beside the test's
+# PROGDIR.  The class opens more than sixteen distinct native dependencies,
+# making this a regression proof for dynamically allocated library facades too.
+hosted-emu68k-t3mui: emu68k-dylib
+	$(MAKE) -C $(M68K_AROS_BUILD) workbench-classes-zune-busy
+	@mkdir -p build/t3mui-suite/zune/genmui/Zune build/t3mui-results
+	@hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/t3mui-suite/zune/genmui/genmui \
+		hosted/emu68k/nativelib/genmui.s >/dev/null
+	@rm -f build/t3mui-suite/zune/genmui/Zune/Busy.mcc
+	@$(ELF2HUNK) \
+		$(M68K_AROS_BUILD)/bin/amiga-m68k/AROS/Classes/Zune/Busy.mcc \
+		build/t3mui-suite/zune/genmui/Zune/Busy.mcc >/dev/null
+	@EMU68K_GUESTSIDE_LIBS='muimaster.library,stdc.library,posixc.library,fd.library' \
+	EMU68K_LIBS_PATH=$(M68K_LIBS_PATH) \
+	EMU68K_MAX_SECONDS=60 CORPUS_TIMEOUT=180 \
+	./graft/68k-corpus build/t3mui-suite build/t3mui-results/external.txt >/dev/null 2>&1
+	@grep -q '\[T3MUI\] PASS' build/t3mui-results/external.txt || { \
+		echo "[T3MUI] FAIL:"; cat build/t3mui-results/external.txt; exit 1; }
+	@echo "[T3MUI] PASS: guest muimaster loaded, created and disposed the external 68k Busy.mcc class through its guest dispatcher."
 
 # [T1] host-side smoke of the dylib API (quantum runs, sink, kill) before it goes in-OS.
 hosted-emu68k-t1dyl: emu68k-dylib
