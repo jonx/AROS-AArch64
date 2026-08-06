@@ -35,8 +35,11 @@ INPUT   ?= ping\nticks\nquit\n
 # The AROS OS source tree (kernel, modules, libraries) lives OUTSIDE this repo;
 # this one is the host/graft layer. Override if your checkout is elsewhere.
 AROS_SRC ?= $(HOME)/Source/aros-upstream
+M68K_AROS_BUILD ?= $(HOME)/aros-m68k-build
+M68K_AROS_GCC ?= $(M68K_AROS_BUILD)/bin/darwin-aarch64/tools/crosstools/m68k-aros-gcc
+ELF2HUNK ?= $(M68K_AROS_BUILD)/bin/darwin-aarch64/tools/elf2hunk
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-emu68k-t3legacy hosted-jit68k-conform hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3setsignal hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-emu68k-t3legacy hosted-emu68k-regina-fixtures hosted-jit68k-conform hosted-test clean
 
 build:
 	@mkdir -p build
@@ -767,6 +770,7 @@ hosted-jit68k-j5d: | build
 		-Ihosted/jit68k/apps68k -Wno-unused-function \
 		hosted/jit68k/jit_region.c hosted/jit68k/j5c_shims.c hosted/jit68k/j5g_shims.c hosted/jit68k/j5c_ra.c \
 		hosted/jit68k/j5d_engine.c hosted/jit68k/j5d_ea_helpers.c hosted/jit68k/j5d_interp.c \
+		hosted/jit68k/j5n_diag.c hosted/jit68k/j5n_symbols.c \
 		hosted/jit68k/j5d_test.c \
 		hosted/jit68k/j3_vector.c hosted/jit68k/j3_marshal.c hosted/jit68k/j4_loader.c \
 		hosted/jit68k/apps68k/stublib.c \
@@ -1690,6 +1694,23 @@ emu68k-dylib: libjit68k
 		-o build/libemu68k.dylib
 	@echo ">> built build/libemu68k.dylib"
 
+# Regina/ARexx execution fixtures. These are ordinary AROS-m68k programs, then
+# converted to classic HUNK files so transparent exec exercises the same loader
+# path as third-party applications. Stage 0 uses `success` as trip.rexx's
+# external-command probe; Stage 2 uses the launcher to put RexxMast, RX and the
+# real TurboCalc application in one guest arena before replaying its script.
+hosted-emu68k-regina-fixtures: | build
+	mkdir -p build/emu68k-regina
+	$(M68K_AROS_GCC) hosted/emu68k/regina/success.c \
+		-o build/emu68k-regina/success.elf
+	$(ELF2HUNK) build/emu68k-regina/success.elf \
+		build/emu68k-regina/success
+	$(M68K_AROS_GCC) -noposixc hosted/emu68k/regina/stage2_launcher.c \
+		-o build/emu68k-regina/stage2-launcher.elf
+	$(ELF2HUNK) build/emu68k-regina/stage2-launcher.elf \
+		build/emu68k-regina/stage2-launcher
+	@echo ">> built Regina Stage 0 and Stage 2 m68k HUNK fixtures"
+
 # [T2a] scan68k: the static hardware-use scanner + the diagnosis CLI. Answers
 # "how would this 68k program run here, and why" without running it.
 scan68k: | build
@@ -1738,6 +1759,16 @@ hosted-emu68k-t3hello: emu68k-dylib
 		-o build/host-emu68k-t3hello
 	@out="$$(build/host-emu68k-t3hello 2>&1)"; echo "$$out"; \
 	case "$$out" in *"[T3HELLO] PASS"*) : ;; *) echo "[T3HELLO] FAIL"; exit 1;; esac
+
+# [T3] Exec signals use the guest Task's tc_SigRecvd word.  This focused
+# standalone fixture proves SetSignal has the same state as Wait and PutMsg.
+hosted-emu68k-t3setsignal: emu68k-dylib
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/setsignal.exe hosted/emu68k/nativelib/setsignal.s >/dev/null
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
+		hosted/emu68k/t3_setsignal_test.c -o build/host-emu68k-t3setsignal
+	@out="$$(build/host-emu68k-t3setsignal 2>&1)"; echo "$$out"; \
+	case "$$out" in *"[T3SETSIGNAL] PASS"*) : ;; *) echo "[T3SETSIGNAL] FAIL"; exit 1;; esac
 
 # [T3] ReadArgs: the call every AmigaDOS CLI tool parses its arguments with.
 hosted-emu68k-t3readargs: emu68k-dylib
