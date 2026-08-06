@@ -1709,7 +1709,27 @@ hosted-emu68k-regina-fixtures: | build
 		-o build/emu68k-regina/stage2-launcher.elf
 	$(ELF2HUNK) build/emu68k-regina/stage2-launcher.elf \
 		build/emu68k-regina/stage2-launcher
-	@echo ">> built Regina Stage 0 and Stage 2 m68k HUNK fixtures"
+	$(M68K_AROS_GCC) -noposixc hosted/emu68k/regina/echo_host.c \
+		-o build/emu68k-regina/echohost.elf
+	$(ELF2HUNK) build/emu68k-regina/echohost.elf \
+		build/emu68k-regina/echohost
+	$(M68K_AROS_GCC) -noposixc hosted/emu68k/regina/echo_launcher.c \
+		-o build/emu68k-regina/echo-launcher.elf
+	$(ELF2HUNK) build/emu68k-regina/echo-launcher.elf \
+		build/emu68k-regina/echo-launcher
+	$(M68K_AROS_GCC) -noposixc hosted/emu68k/regina/progdir_child.c \
+		-o build/emu68k-regina/progdirchild.elf
+	$(ELF2HUNK) build/emu68k-regina/progdirchild.elf \
+		build/emu68k-regina/progdirchild
+	$(M68K_AROS_GCC) -noposixc hosted/emu68k/regina/progdir_parent.c \
+		-o build/emu68k-regina/progdir-parent.elf
+	$(ELF2HUNK) build/emu68k-regina/progdir-parent.elf \
+		build/emu68k-regina/progdir-parent
+	$(M68K_AROS_GCC) -noposixc hosted/emu68k/regina/idle_window.c \
+		-o build/emu68k-regina/idlewindow.elf
+	$(ELF2HUNK) build/emu68k-regina/idlewindow.elf \
+		build/emu68k-regina/idlewindow
+	@echo ">> built Regina Stage 0, Stage 2, ECHO PROGDIR and IDLE m68k HUNK fixtures"
 
 # [T2a] scan68k: the static hardware-use scanner + the diagnosis CLI. Answers
 # "how would this 68k program run here, and why" without running it.
@@ -1769,6 +1789,62 @@ hosted-emu68k-t3setsignal: emu68k-dylib
 		hosted/emu68k/t3_setsignal_test.c -o build/host-emu68k-t3setsignal
 	@out="$$(build/host-emu68k-t3setsignal 2>&1)"; echo "$$out"; \
 	case "$$out" in *"[T3SETSIGNAL] PASS"*) : ;; *) echo "[T3SETSIGNAL] FAIL"; exit 1;; esac
+
+# [T3] PROGDIR: belongs to the PROGRAM, not to the process running it. One 68k
+# program starts another that lives in a different drawer, and the child opens
+# a file next to ITSELF. Both are contexts of one emu68k run inside one native
+# process, which is the case that used to resolve PROGDIR: to the launcher's
+# drawer and silently mis-start every classic application launched from a
+# script. Needs a booted instance and RESTARTS it, so it is not part of the
+# default gate; the negative control is proven (reverting the OS-side apply
+# turns this into "could not open PROGDIR:progdirchild.data").
+hosted-emu68k-progdir: hosted-emu68k-regina-fixtures
+	cp build/emu68k-regina/progdir-parent $(HOME)/AROS/Shared/Regina68k/commands/
+	mkdir -p $(HOME)/AROS/Shared/Regina68k/progdir
+	cp build/emu68k-regina/progdirchild $(HOME)/AROS/Shared/Regina68k/progdir/
+	printf 'progdir-marker\n' > $(HOME)/AROS/Shared/Regina68k/progdir/progdirchild.data
+	rm -f $(HOME)/AROS/Shared/Regina68k/progdir.result
+	AROS_CTL_RESTART=1 \
+	AROS_CTL_STARTUP_FILE=$(HOME)/AROS/Shared/regina-progdir-startup \
+	EMU68K_GUESTSIDE_LIBS="stdc.library,posixc.library" \
+	EMU68K_LIBS_PATH="$(HOME)/Source/references/aros-m68k-20260804/libs:$(HOME)/AROS/Shared/Regina68k/libs" \
+	graft/aros-ctl run >/dev/null 2>&1
+	@for i in $$(seq 1 60); do \
+	  grep -q "PASS\|FAIL" $(HOME)/AROS/Shared/Regina68k/progdir.result 2>/dev/null && break; \
+	  sleep 2; done; \
+	out="$$(cat $(HOME)/AROS/Shared/Regina68k/progdir.result 2>/dev/null)"; echo "$$out"; \
+	case "$$out" in *"PROGDIR-PASS"*) echo "[T3PROGDIR] PASS: a child program resolved its own drawer";; \
+	  *) echo "[T3PROGDIR] FAIL"; exit 1;; esac
+
+# [T3] An idle 68k GUI program must not starve the system that feeds it. A
+# window is opened, the program goes idle in Wait, and the click is sent ten
+# seconds LATER - racing the idle would prove nothing. AROS schedules
+# cooperatively, so a host-side sleep on this task leaves `cocoa.hidd input`
+# and `input.device` READY and never run, and the click can never be produced.
+# Needs a booted instance and RESTARTS it. Negative control is proven: with the
+# native idle replaced by a host sleep, the task dump shows RUN with those two
+# tasks READY behind it and the click never arrives.
+hosted-emu68k-idle: hosted-emu68k-regina-fixtures
+	cp build/emu68k-regina/idlewindow $(HOME)/AROS/Shared/Regina68k/commands/
+	rm -f $(HOME)/AROS/Shared/Regina68k/idle.result
+	AROS_CTL_RESTART=1 \
+	AROS_CTL_STARTUP_FILE=$(HOME)/AROS/Shared/regina-idle-startup \
+	EMU68K_GUESTSIDE_LIBS="stdc.library,posixc.library,fd.library" \
+	EMU68K_LIBS_PATH="$(HOME)/Source/references/aros-m68k-20260804/libs" \
+	graft/aros-ctl run >/dev/null 2>&1
+	@for i in $$(seq 1 45); do \
+	  grep -q "IDLE-READY\|FAIL" $(HOME)/AROS/Shared/Regina68k/idle.result 2>/dev/null && break; \
+	  sleep 2; done; \
+	grep -q "IDLE-READY" $(HOME)/AROS/Shared/Regina68k/idle.result 2>/dev/null || { \
+	  echo "[T3IDLE] FAIL: the window never opened"; exit 1; }
+	@sleep 10
+	@graft/aros-ctl click 0 250 140 >/dev/null 2>&1; \
+	for i in $$(seq 1 15); do \
+	  grep -q "PASS\|FAIL" $(HOME)/AROS/Shared/Regina68k/idle.result 2>/dev/null && break; \
+	  sleep 1; done; \
+	out="$$(cat $(HOME)/AROS/Shared/Regina68k/idle.result 2>/dev/null)"; echo "$$out"; \
+	case "$$out" in *"IDLE-PASS"*) echo "[T3IDLE] PASS: input still reached a guest that had been idle for ten seconds";; \
+	  *) echo "[T3IDLE] FAIL: the instance stopped scheduling while the guest idled"; exit 1;; esac
 
 # [T3] ReadArgs: the call every AmigaDOS CLI tool parses its arguments with.
 hosted-emu68k-t3readargs: emu68k-dylib

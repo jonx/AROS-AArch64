@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026-08-06 - Classic applications get their activation event, and ARexx is proven
+
+- **A window that opens active now says so.** The classic way to open a window
+  is to create it with no IDCMP events, hang your own port on it, and switch
+  events on a moment later. On real hardware the program wins that race; here
+  the window was already activated by the time it asked, so the activation
+  event was lost and applications waiting for it never finished starting up.
+  The bridge now replays exactly that one lost activation, only for the window
+  that really is active and only when none was delivered.
+- **An idle 68k program no longer freezes the machine.** When a classic
+  application sat waiting for you to click something, the whole system could
+  stop responding: no mouse, no keyboard, no screen updates, with no way back.
+  It was waiting for input while holding the CPU that the input handling itself
+  needed. It now waits the same way every other part of the system waits, so
+  everything keeps running while an application idles.
+- **Two more system libraries run as real 68k code.** `diskfont.library`, which
+  every application that picks a font goes through, now runs above the
+  waterline instead of being served natively. It needed one missing piece: a
+  structure the program reads back can now carry a file lock the program can
+  pass straight to another call. `fd.library` joined the same set.
+- **A program started by another program finds its own files.** `PROGDIR:`
+  means "the drawer this program was loaded from", and classic applications
+  keep their settings and data there. When one 68k program launched another,
+  the child was still looking in the launcher's drawer, so it silently started
+  up wrong. Each running program now carries its own drawer. TurboCalc, which
+  reads `PROGDIR:TurboCalc.data` at startup, now reaches the same state
+  launched from a script as it does launched by hand.
+- **The ARexx path has a permanent proof.** A small purpose-built host answers
+  a scripted `ping` with `PONG:ping` through the real chain: RexxMast, RX, the
+  guest rexxsyslib, a published public port, and the reply. It passes, so
+  scripting a 68k application is a supported route and any future breakage in
+  it shows up as one failing test rather than a mystery inside an application.
+
 ## 2026-08-06 - Moonstone has a soundtrack
 
 - **The game plays music and combat sounds.** Moonstone on AROS was silent:
