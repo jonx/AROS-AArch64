@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-08-07 - The window frame belongs to the Mac, the inside to AROS
+
+- **Clicking the window's title bar no longer reaches AROS.** A right-click on
+  the Macaros title bar used to pop the AROS menus, because every click on the
+  window was handed to the guest no matter where it landed. Mouse input now
+  only reaches AROS when it lands on the AROS screen itself; the title bar and
+  the rest of the window frame behave like any Mac window (a title-bar
+  right-click shows the standard macOS menu). Drags that start inside the
+  screen still work when the pointer crosses the frame, and button releases
+  are never lost.
+
 ## 2026-08-06 - Classic applications get their activation event, and ARexx is proven
 
 - **A window that opens active now says so.** The classic way to open a window
