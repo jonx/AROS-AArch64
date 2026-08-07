@@ -765,6 +765,7 @@ hosted-jit68k-j5d: | build
 		perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c; \
 	done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_EA.c build/emu68-darwin/M68k_EA.c --ea-sandbox
+	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_MOVE.c build/emu68-darwin/M68k_MOVE.c --move-no-merge
 	for f in M68k_LINE0 M68k_LINE5 M68k_LINE8 M68k_LINE9 M68k_LINEB M68k_LINEC M68k_LINED M68k_LINEE; do perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/$$f.c build/emu68-darwin/$$f.c --rmw-sandbox; done
 	perl hosted/jit68k/emu68_darwinize.pl hosted/jit68k/emu68/M68k_LINE0.c build/emu68-darwin/M68k_LINE0.c --rmw-sandbox --cas-sandbox   # [STD68K] atomics: sandbox rebase + byteswap
 	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/jit68k -Ihosted/jit68k/emu68 \
