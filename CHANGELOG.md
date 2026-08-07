@@ -22,10 +22,21 @@
   that really is active and only when none was delivered.
 - **Self-extracting and overlaid programs load correctly.** A classic program
   that carries no relocation data finds the rest of itself by walking the list
-  of blocks the system loaded it into. That list was not being built for the
-  program the system starts directly, so such a program followed a bogus link
-  and was reported as needing real Amiga hardware. It is built now, which also
-  fixed a translation test that had been failing for unrelated-looking reasons.
+  of blocks the system loaded it into, and that list also records each block's
+  size, which unpackers read to know where their packed data ends. Neither the
+  list nor the sizes were being provided for the program the system starts
+  directly, so such a program followed a bogus link and was reported as
+  needing real Amiga hardware. Both are provided now, matching what the
+  original system loader writes byte for byte; a packed music program now
+  unpacks itself completely and runs, and a translation test that had been
+  failing for unrelated-looking reasons passes.
+- **Hardware-level programs can be examined instead of only refused.** A
+  diagnostic switch runs a program that drives the Amiga chips directly, with
+  the chip addresses answering as inert memory. That does not make such a
+  program work - sound hardware that does not exist stays silent - but it
+  shows what the program is and how far it gets, which is how a mystery file
+  was identified as a chip-level music player rather than something this
+  layer should have served.
 - **An idle 68k program no longer freezes the machine.** When a classic
   application sat waiting for you to click something, the whole system could
   stop responding: no mouse, no keyboard, no screen updates, with no way back.
