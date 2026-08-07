@@ -1695,6 +1695,12 @@ emu68k-dylib: libjit68k
 		-o build/libemu68k.dylib
 	@echo ">> built build/libemu68k.dylib"
 
+hosted-emu68k-bridge-cap: | build
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
+		hosted/emu68k/bridge_lab_test.c hosted/emu68k/bridge_lab.c \
+		-o build/host-emu68k-bridge-cap
+	build/host-emu68k-bridge-cap
+
 # Regina/ARexx execution fixtures. These are ordinary AROS-m68k programs, then
 # converted to classic HUNK files so transparent exec exercises the same loader
 # path as third-party applications. Stage 0 uses `success` as trip.rexx's
