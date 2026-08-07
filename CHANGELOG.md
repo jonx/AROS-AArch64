@@ -9,6 +9,12 @@
   event was lost and applications waiting for it never finished starting up.
   The bridge now replays exactly that one lost activation, only for the window
   that really is active and only when none was delivered.
+- **Self-extracting and overlaid programs load correctly.** A classic program
+  that carries no relocation data finds the rest of itself by walking the list
+  of blocks the system loaded it into. That list was not being built for the
+  program the system starts directly, so such a program followed a bogus link
+  and was reported as needing real Amiga hardware. It is built now, which also
+  fixed a translation test that had been failing for unrelated-looking reasons.
 - **An idle 68k program no longer freezes the machine.** When a classic
   application sat waiting for you to click something, the whole system could
   stop responding: no mouse, no keyboard, no screen updates, with no way back.
