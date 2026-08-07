@@ -40,7 +40,7 @@ M68K_AROS_GCC ?= $(M68K_AROS_BUILD)/bin/darwin-aarch64/tools/crosstools/m68k-aro
 ELF2HUNK ?= $(M68K_AROS_BUILD)/bin/darwin-aarch64/tools/elf2hunk
 M68K_LIBS_PATH ?= $(HOME)/Source/references/aros-m68k-20260804/libs
 
-.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3setsignal hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3mui hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-emu68k-t3legacy hosted-emu68k-regina-fixtures hosted-jit68k-conform hosted-test clean
+.PHONY: image run shot dbg test hosted hosted-run hosted-preempt hosted-abi hosted-exec hosted-mem hosted-kern hosted-display hosted-cocoametal cocoametal-dylib cocoametal-abi cocoametal-shell cocoametal-statusbar cocoametal-hiddsim cocoametal-d2t cocoametal-input cocoametal-settings cocoametal-fullscreen cocoametal-livedraw cocoametal-show hosted-coreaudio coreaudio-dylib coreaudio-abi audio-smoke bench hosted-clipboard pasteboard-dylib pasteboard-abi hosted-hostvolume hosted-bsdsocket hosted-library hosted-signal hosted-msgport hosted-device hosted-execboot hosted-jit68k hosted-jit68k-hardened hosted-jit68k-j2 hosted-jit68k-j3 hosted-jit68k-j4 hosted-jit68k-j5a hosted-jit68k-j5b hosted-jit68k-j5c hosted-jit68k-j5d hosted-jit68k-j5e hosted-jit68k-j5f hosted-jit68k-j5g hosted-jit68k-j5h hosted-jit68k-j5i hosted-jit68k-j5j hosted-jit68k-j5k hosted-jit68k-j5l hosted-jit68k-j5m hosted-jit68k-j5n hosted-jit68k-j5o hosted-jit68k-j5p hosted-jit68k-j5q hosted-jit68k-j5r hosted-jit68k-j5s hosted-jit68k-j5t hosted-jit68k-apps libjit68k run68k hosted-jit68k-args hosted-emu68k-t0p1 hosted-emu68k-t0p3 hosted-emu68k-t0p4 scan68k hosted-emu68k-t2scan hosted-emu68k-t2guard hosted-emu68k-t3hello hosted-emu68k-t3setsignal hosted-emu68k-t3workbench hosted-emu68k-t3readargs hosted-emu68k-t3gen hosted-emu68k-t3mui hosted-emu68k-t3fmt hosted-emu68k-t3guestlib hosted-emu68k-t3guestlive hosted-emu68k-t3ereal rawdofmt-blob struct-layouts hosted-emu68k-t3lha hosted-emu68k-t3legacy hosted-emu68k-regina-fixtures hosted-jit68k-conform hosted-test clean
 
 build:
 	@mkdir -p build
@@ -1749,6 +1749,12 @@ scan68k: | build
 # program is mis-routed. Both halves matter — a wrong FULL sends a working program
 # to an emulator, which is the failure the confidence grading exists to avoid.
 hosted-emu68k-t2scan: scan68k
+	@mkdir -p hosted/emu68k/scantests/bin; \
+	for src in hosted/emu68k/scantests/*.s; do \
+	  name="$$(basename "$$src" .s)"; \
+	  hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+	    -o "hosted/emu68k/scantests/bin/$$name.exe" "$$src" >/dev/null || exit 1; \
+	done
 	@fail=0; \
 	check() { got="$$(build/scan68k -q hosted/emu68k/scantests/bin/$$1.exe | cut -d' ' -f1-2)"; \
 	  if [ "$$got" != "$$2" ]; then echo "  FAIL $$1: got '$$got' want '$$2'"; fail=1; \
@@ -1761,6 +1767,7 @@ hosted-emu68k-t2scan: scan68k
 	check datadecoy    "JIT 1"; \
 	check opdecoy      "JIT 0"; \
 	check computedhw   "JIT 0"; \
+	check color00      "JIT 1"; \
 	echo "== [T2a] real programs must never be mis-routed to FULL =="; \
 	for f in hosted/jit68k/apps68k/bin/*.exe hosted/jit68k/bench/bin/dhry.exe; do \
 	  [ -f "$$f" ] || continue; \
@@ -1768,7 +1775,7 @@ hosted-emu68k-t2scan: scan68k
 	  if [ "$$r" != "JIT" ]; then echo "  FAIL $$(basename $$f): routed $$r"; fail=1; fi; \
 	done; \
 	[ $$fail -eq 0 ] || { echo "[T2a] FAIL"; exit 1; }; \
-	echo "[T2a] PASS: 4 hardware-bangers routed FULL, 3 negative controls routed JIT (inline hardware-shaped data graded weak, opcode-shaped data in a DATA hunk ignored, a runtime-computed address correctly invisible), and every real corpus program routes JIT."
+	echo "[T2a] PASS: 4 hardware-bangers routed FULL, 4 negative/hosted controls routed JIT (including the exact COLOR00 calibration sink), and every real corpus program routes JIT."
 
 # [T2b] the runtime hardware guard: a guest touch of the Amiga hardware comes back
 # as a classified routing event naming the register, not a crash. Needs the scanner
@@ -1796,6 +1803,17 @@ hosted-emu68k-t3setsignal: emu68k-dylib
 		hosted/emu68k/t3_setsignal_test.c -o build/host-emu68k-t3setsignal
 	@out="$$(build/host-emu68k-t3setsignal 2>&1)"; echo "$$out"; \
 	case "$$out" in *"[T3SETSIGNAL] PASS"*) : ;; *) echo "[T3SETSIGNAL] FAIL"; exit 1;; esac
+
+# [T3] A Workbench-launched program sees classic startup semantics in its own
+# arena: pr_CLI is zero and a big-endian WBStartup is already queued on its
+# embedded Process port before instruction zero.
+hosted-emu68k-t3workbench: emu68k-dylib
+	hosted/jit68k/apps68k/.toolchain/vasmm68k_mot -Fhunkexe -nosym -kick1hunks \
+		-o build/workbench-startup.exe hosted/emu68k/nativelib/workbench_startup.s >/dev/null
+	clang -arch arm64 -O2 -Wall -Wextra -Ihosted/emu68k \
+		hosted/emu68k/t3_workbench_test.c -o build/host-emu68k-t3workbench
+	@out="$$(build/host-emu68k-t3workbench 2>&1)"; echo "$$out"; \
+	case "$$out" in *"[T3WORKBENCH] PASS"*) : ;; *) echo "[T3WORKBENCH] FAIL"; exit 1;; esac
 
 # [T3] PROGDIR: belongs to the PROGRAM, not to the process running it. One 68k
 # program starts another that lives in a different drawer, and the child opens
